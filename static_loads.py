@@ -49,6 +49,12 @@ def static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coe
     p_node_coor_sw = p_node_coor + D_glob_sw[g_node_num:,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
     return g_node_coor_sw, p_node_coor_sw, D_glob_sw
 
+def nonhomogeneous_wind_func():
+    Nw_beta_bar, Nw_theta_bar = Nw_beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
+
+
+
+
 def static_dead_loads_func(g_node_coor, p_node_coor, alpha):
     """
     :return: New girder and gontoon node coordinates, as well as the displacements that led to them.

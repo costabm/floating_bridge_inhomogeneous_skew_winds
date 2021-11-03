@@ -1117,8 +1117,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     if include_sw:  # including static wind
         from static_loads import static_wind_func, R_loc_func
         # Displacements
-        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB,
-                                                                     theta_0, aero_coef_method, n_aero_coef, skew_approach)
+        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach)
         D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
         alpha_sw = copy.deepcopy(D_loc_sw[:g_node_num, 3])  # local nodal torsional rotation.
         # Internal forces
@@ -1431,7 +1430,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
 
     ####################################################################################################################################################################################
     ## THE MAIN CONTOURF PLOT IS HERE @@@@@@@@@@@@@@@@@@@@@@@@@@@ ######################################################################################################################
-    from buffeting_plots import plot_contourf_spectral_response
+    # from buffeting_plots import plot_contourf_spectral_response
     # plot_contourf_spectral_response(f_array, S_delta_local, g_node_coor, S_by_freq_unit='rad', zlims_bool=False, cbar_extend='min', filename='Contour_FD_', idx_plot=[1,2,3])
     ## THE MAIN CONTOURF PLOT IS HERE @@@@@@@@@@@@@@@@@@@@@@@@@@@ ######################################################################################################################
     ####################################################################################################################################################################################
