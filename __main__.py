@@ -297,7 +297,7 @@ f_array_type_cases = ['equal_energy_bins']  # 'equal_width_bins', 'equal_energy_
 # n_modes_cases = [(g_node_num+len(p_node_coor))*6]
 n_modes_cases = [100]
 n_nodes_cases = [len(g_node_coor)]
-beta_DB_cases = np.arange(rad(0), rad(359), rad(10))  # wind (from) directions. Interval: [rad(0), rad(360)]
+beta_DB_cases = np.arange(rad(0), rad(359), rad(30))  # wind (from) directions. Interval: [rad(0), rad(360)]
 list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases,
                                    flutter_derivatives_type_cases, n_freq_cases, n_modes_cases, n_nodes_cases,
                                    f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases, f_array_type_cases, make_M_C_freq_dep_cases, dtype_in_response_spectra_cases)

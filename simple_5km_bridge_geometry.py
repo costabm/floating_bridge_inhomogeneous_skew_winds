@@ -21,7 +21,7 @@ pontoons_s = np.cumsum([100]*49)  # Total of 49 pontoons: np.cumsum([100]*49)
 zbridge = 14.5  # m. (deck height above water, measured at the Shear Centre!)
 p_freeboard = 4  # m. (height of pontoon above water level)
 CS_height = 4  # m. CS height
-FEM_max_length = 25  # Choose: 10,12.5,14.29,16.67,20,25,33.34,50,100  # Horizontal response->100 (accurate to 0.3%). Vertical->50(6.2%) 33.34(2.6%) 25(1.4%). Torsional->50(8.1%) 33.34(3.6%) 25(1.9%)
+FEM_max_length = 100  # Choose: 10,12.5,14.29,16.67,20,25,33.34,50,100  # Horizontal response->100 (accurate to 0.3%). Vertical->50(6.2%) 33.34(2.6%) 25(1.4%). Torsional->50(8.1%) 33.34(3.6%) 25(1.9%)
 vertical_curvature = False  # False: horizontal bridge girder.
 bridge_shape = 'C'
 # Dependent variables
@@ -29,7 +29,7 @@ n_pontoons = len(pontoons_s)
 ########################################################################################################################
 
 
-# # todo: TESTINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+# # TESTINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 # ########################################################################################################################
 # # Floating bridge Properties:
 # ########################################################################################################################
@@ -45,7 +45,7 @@ n_pontoons = len(pontoons_s)
 # # Dependent variables
 # n_pontoons = len(pontoons_s)
 # ########################################################################################################################
-# # todo: TESTINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+# # TESTINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 #
 
 def g_L_2D_without_g_node_coor_func(arc_length, pontoons_s, FEM_max_length):
@@ -146,3 +146,4 @@ g_node_coor = g_node_coor_func(R=R, arc_length=arc_length, pontoons_s=pontoons_s
 p_node_coor = p_node_coor_func(g_node_coor, arc_length=arc_length, pontoons_s=pontoons_s, FEM_max_length=FEM_max_length)
 p_node_idx = p_node_idx_func(arc_length=arc_length, pontoons_s=pontoons_s, FEM_max_length=FEM_max_length)
 c_height = c_height_func(g_node_coor, arc_length=arc_length, pontoons_s=pontoons_s, FEM_max_length=FEM_max_length)
+

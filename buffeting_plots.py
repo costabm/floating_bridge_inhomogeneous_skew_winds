@@ -166,11 +166,11 @@ def response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_pol
         ax = plt.subplot(111, projection='polar')
         ax.set_prop_cycle(custom_cycler)
         k = -1 # counter
-        for _, (_, aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach,
-                f_array_type, make_M_C_freq_dep, dtype_in_response_spectra, cospec_type,
-                damping_ratio, damping_Ti, damping_Tj, analysis_type, n_seeds, dt, C_Ci_linearity, SE_linearity, geometric_linearity, _) in list_of_cases_to_plot_df.iterrows():
-        # for _, (_, aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach, f_array_type,
-        #         make_M_C_freq_dep, dtype_in_response_spectra, cospec_type, damping_ratio, damping_Ti, damping_Tj, analysis_type, _) in list_of_cases_to_plot_df.iterrows():
+        # for _, (_, aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach,
+        #         f_array_type, make_M_C_freq_dep, dtype_in_response_spectra, cospec_type,
+        #         damping_ratio, damping_Ti, damping_Tj, analysis_type, n_seeds, dt, C_Ci_linearity, SE_linearity, geometric_linearity, _) in list_of_cases_to_plot_df.iterrows():
+        for _, (_, aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach, f_array_type,
+                make_M_C_freq_dep, dtype_in_response_spectra, cospec_type, damping_ratio, damping_Ti, damping_Tj, analysis_type, _) in list_of_cases_to_plot_df.iterrows():
             k += 1  # starts with 0
             # str_plt_0 = aero_coef_method[:6] + '. '
             # str_plt_1 = 'Ca: ' + str(n_aero_coef)[:1] + '. '
@@ -339,8 +339,8 @@ def response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_pol
         table_all_diff.to_csv(r'results\Table_of_all_differences_between_all_cases_' + strftime("%Y-%m-%d_%H-%M-%S", gmtime()) + '.csv',index = False)
         table_max_diff_all_betas.to_csv(r'results\Table_of_the_maximum_difference_for_pairs_of_cases_' + strftime("%Y-%m-%d_%H-%M-%S", gmtime()) + '.csv')
 
-response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'C_Ci_linearity', 'f_array_type', 'make_M_C_freq_dep', 'dtype_in_response_spectra', 'beta_DB'])
-# response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'n_aero_coef', 'beta_DB'])
+# response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'C_Ci_linearity', 'f_array_type', 'make_M_C_freq_dep', 'dtype_in_response_spectra', 'beta_DB'])
+response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'n_aero_coef', 'make_M_C_freq_dep', 'beta_DB'])
 
 
 def plot_contourf_spectral_response(f_array, S_delta_local, g_node_coor, S_by_freq_unit='rad', zlims_bool=False, cbar_extend='min', filename='Contour_', idx_plot=[1,2,3]):
