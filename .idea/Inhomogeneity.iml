@@ -7,6 +7,7 @@
       <sourceFolder url="file://$MODULE_DIR$/other" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/results" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/wind_field" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/WRF_500_interpolated" isTestSource="false" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.7 (base)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

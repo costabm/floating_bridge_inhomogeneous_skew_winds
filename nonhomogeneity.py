@@ -23,16 +23,16 @@ def interpolate_from_WRF_nodes_to_g_nodes(g_node_coor, WRF_node_coor, WRF_node_f
     # Make sure the first and last g_nodes and WRF_nodes are positioned in the same place
     assert np.allclose(g_node_coor[0], WRF_node_coor[0])
     assert np.allclose(g_node_coor[-1], WRF_node_coor[-1])
-    n_WRF_nodes = len(WRF_node_coor)
-    n_g_nodes   = len(  g_node_coor)
-    WRF_node_s = np.linspace(0, arc_length, n_WRF_nodes)
-    g_node_s   = np.linspace(0, arc_length,   n_g_nodes)
-    func = interpolate.interp1d(x=WRF_node_s, y=WRF_node_func, kind='linear')
     if plot:
         plt.scatter(g_node_coor[:, 0], g_node_coor[:, 1])
         plt.scatter(WRF_node_coor[:, 0], WRF_node_coor[:, 1], alpha=0.5, s=100)
         plt.axis('equal')
         plt.show()
+    n_WRF_nodes = len(WRF_node_coor)
+    n_g_nodes   = len(  g_node_coor)
+    WRF_node_s = np.linspace(0, arc_length, n_WRF_nodes)
+    g_node_s   = np.linspace(0, arc_length,   n_g_nodes)
+    func = interpolate.interp1d(x=WRF_node_s, y=WRF_node_func, kind='linear')
     return func(g_node_s)
 
 
