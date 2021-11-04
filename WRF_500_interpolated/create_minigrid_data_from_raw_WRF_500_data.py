@@ -22,8 +22,9 @@ def deg(rad):
 create_minigrid = False  # if True, when running this file, the miniggrid is created
 
 earth_R = 6371*1000  # m. Globally averaged radius of the Earth. https://en.wikipedia.org/wiki/Earth_radius
+n_bridge_WRF_nodes = 11  # If you change this, you need to create a new database: WRF_at_bridge_nodes.nc
 
-def bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes = 11, bridge_R = 5000, bridge_L = 5000, bridge_chord_yaw = rad(10), bridge_south_coor = np.array([rad(60.0855), rad(5.3705)]), unit='deg'):
+def bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes = n_bridge_WRF_nodes, bridge_R = 5000, bridge_L = 5000, bridge_chord_yaw = rad(10), bridge_south_coor = np.array([rad(60.0855), rad(5.3705)]), unit='deg'):
     """
     :param n_bridge_WRF_nodes: Number of discrete points along the bridge axis to interpolate the WRF data.
     :param bridge_R: m. Bridge radius

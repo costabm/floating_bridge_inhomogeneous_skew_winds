@@ -156,7 +156,7 @@ def beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha):
     T_GsGw = T_GsGw_func(beta_0, theta_0)
     T_LsGw = np.einsum('nij,jk->nik', T_LsGs, T_GsGw)
     U_bar = U_bar_func(g_node_coor, RP=RP)
-    U_Gw = np.array([U_bar, np.zeros(U_bar.shape), np.zeros(U_bar.shape)]).T
+    U_Gw = np.array([U_bar, np.zeros(U_bar.shape), np.zeros(U_bar.shape)]).T  # todo: delete line above and make this line np.array([1,0,0])? should give same results...
     U_Ls = np.einsum('nij,nj->ni', T_LsGw, U_Gw)
     Ux = U_Ls[:,0]
     Uy = U_Ls[:,1]

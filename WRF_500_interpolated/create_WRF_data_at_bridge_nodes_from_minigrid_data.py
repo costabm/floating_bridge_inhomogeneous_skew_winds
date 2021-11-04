@@ -100,6 +100,5 @@ plt.gca().set_aspect('equal', adjustable='box')
 plt.tight_layout()
 plt.show()
 
-
-
 print('Confirm in the WRF data that 0 deg is North and then angles rotate clockwise')
+
