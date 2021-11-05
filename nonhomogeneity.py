@@ -8,17 +8,15 @@ email: bernamdc@gmail.com
 
 import numpy as np
 from scipy import interpolate
-from buffeting import U_bar_func
+from buffeting import U_bar_func, beta_0_func
 from simple_5km_bridge_geometry import g_node_coor, g_node_coor_func, R, arc_length, zbridge, bridge_shape, g_s_3D_func
-from transformations import T_LsGs_3g_func, T_GsGw_func
+from transformations import T_LsGs_3g_func, T_GsGw_func, from_cos_sin_to_0_2pi
 from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R
 import matplotlib.pyplot as plt
 
 
 n_WRF_nodes = n_bridge_WRF_nodes
 WRF_node_coor = g_node_coor_func(R=R, arc_length=arc_length, pontoons_s=[], zbridge=zbridge, FEM_max_length=arc_length/(n_WRF_nodes-1), bridge_shape=bridge_shape)  # needs to be calculated
-
-
 
 
 # Testing consistency between WRF nodes in bridge coordinates and in (lats,lons)
@@ -54,14 +52,17 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor=g_node_coor
 
 # todo: delete below
 from create_WRF_data_at_bridge_nodes_from_minigrid_data import wd_to_plot, ws_to_plot
-Nw_beta_0 = interpolate_from_WRF_nodes_to_g_nodes(np.array(wd_to_plot, dtype=float))
+Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_to_plot, dtype=float))
+Nw_beta_DB_sin = interpolate_from_WRF_nodes_to_g_nodes(np.sin(wd_to_plot, dtype=float))
+Nw_beta_DB = from_cos_sin_to_0_2pi(Nw_beta_DB_cos, Nw_beta_DB_sin, out_units='rad')
+Nw_beta_0 = np.array([beta_0_func(i) for i in Nw_beta_DB])
 print(np.rad2deg(Nw_beta_0))
 Nw_theta_0 = Nw_beta_0 * 0
 alpha = Nw_theta_0
 # todo: delete above
 
 
-def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_and_U_bar_to_have_same='energy'):
+def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
     """
     Returns a vector of Nonhomogeneous mean wind at each of the g_nodes
     force_Nw_and_U_bar_to_have_same_avg : None or '', 'mean', 'energy'. force the Nw_U_bar_at_WRF_nodes to have the same e.g. mean 1, and thus when multiplied with U_bar, the result will have the same mean (of all nodes) wind
@@ -69,17 +70,18 @@ def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_and_U_bar_to_have
     assert len(Nw_U_bar_at_WRF_nodes) == n_WRF_nodes
     U_bar_10min = U_bar_func(g_node_coor)
     interp_fun = interpolate_from_WRF_nodes_to_g_nodes(Nw_U_bar_at_WRF_nodes)
-    if force_Nw_and_U_bar_to_have_same =='mean':
+    if force_Nw_U_bar_and_U_bar_to_have_same =='mean':
         Nw_U_bar = U_bar_10min *        ( interp_fun / np.mean(interp_fun) )
         assert np.isclose(np.mean(Nw_U_bar), np.mean(U_bar_10min))        # same mean(U)
-    if force_Nw_and_U_bar_to_have_same =='energy':
+    elif force_Nw_U_bar_and_U_bar_to_have_same =='energy':
         Nw_U_bar = U_bar_10min * np.sqrt( interp_fun / np.mean(interp_fun) )
         assert np.isclose(np.mean(Nw_U_bar**2), np.mean(U_bar_10min**2))  # same energy = same mean(U**2)
+    else:
+        Nw_U_bar = interp_fun
     return Nw_U_bar
 
 
-# Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes=ws_to_plot)
-
+# Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes=ws_to_plot, force_Nw_U_bar_and_U_bar_to_have_same=None)
 
 
 def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
@@ -92,6 +94,8 @@ def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
     T_LsNw = np.einsum('nij,njk->nik', T_LsGs, T_GsNw)
     U_Gw_norm = np.array([1, 0, 0])  # U_Gw = (U, 0, 0), so normalized is (1, 0, 0)
     U_Ls = np.einsum('nij,j->ni', T_LsNw, U_Gw_norm)
+    # todo: I hope you had a nice weekend bernardo, continue here :)
+
 
     ######## GET INSPIRATION FROM BELOW
     def beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha):

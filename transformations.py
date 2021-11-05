@@ -113,6 +113,18 @@ def beta_within_minus_Pi_and_Pi_func(beta_any):
     beta_within_minus_Pi_and_Pi = np.arctan2(np.sin(beta_any), np.cos(beta_any))
     return beta_within_minus_Pi_and_Pi
 
+def from_cos_sin_to_0_2pi(cosines, sines, out_units='rad'):
+    # # To test this angle transformations, do:
+    # test = np.deg2rad([-170, 170, 30, -30, -90, 370, -1, -180, 180])
+    # test = np.arctan2(np.sin(test), np.cos(test))
+    # test[test < 0] = abs(test[test < 0]) + 2 * (np.pi - abs(test[test < 0]))
+    # print(np.rad2deg(test))
+    atan2 = np.arctan2(sines, cosines)  # angles in interval -pi to pi
+    atan2[atan2 < 0] = abs(atan2[atan2 < 0]) + 2 * ( np.pi - abs(atan2[atan2 < 0]) )
+    if out_units == 'deg':
+        atan2 = np.rad2deg(atan2)
+    return atan2
+
 def theta_yz_bar_func(betas, thetas):
     # Check 'tbn_EGV' variable in the "skew_wind_theory_in_Sympy.py" for proof
     return np.arcsin(np.sin(thetas)/np.sqrt(np.sin(thetas)**2 + np.cos(betas)**2*np.cos(thetas)**2))

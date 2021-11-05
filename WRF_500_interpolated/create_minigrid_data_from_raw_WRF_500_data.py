@@ -98,7 +98,7 @@ def create_minigrid_data_func():
     minidataset_ws[:] = ws
     minidataset_wd[:] = wd
     minidataset_time[:] = hours_since_datetime_min
-    minidataset['time'].description = """Number of hours since 01/01/0001 00:00:00 (use datetime.datetime.min + datetime.timedelta(hours=minidataset['time'])"""
+    minidataset['time'].description = "Num of hours since matlabs beginning of time, but there is a 2-day mismatch between python and matlab (1 due to date convention + 1 due to base index convention?). Hence, in Python run: datetime.datetime.min + datetime.timedelta(hours=17522904) - datetime.timedelta(days=2). The first timestamp of this database (17522904) should correspond to 1-Jan-2000"
     minidataset.close()
 
     # Plotting all nodes of the bridge and the mini-grid
