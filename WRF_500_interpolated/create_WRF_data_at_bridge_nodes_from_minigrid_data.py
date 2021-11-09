@@ -57,7 +57,6 @@ if generate_new_WRF_at_bridge_nodes_file:
     #  The first timestamp of this database should be 1-Jan-2000
     bridgedataset.close()
 
-
 # Reading the WRF dataset at the bridge nodes:
 bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'r', format='NETCDF4')
 lats_bridge = bridgedataset['latitudes'][:].data
@@ -88,27 +87,43 @@ idxs_sorted_by = {'ws_var': np.array(np.argsort(np.var(ws, axis=1))),
                   'ws_max': np.array(np.argsort(np.max(ws, axis=1))),
                   'wd_var': np.array(np.argsort(pd.concat([wd_cos_var, wd_sin_var], axis=1).max(axis=1)))}
 
+
 # Plotting datasamples with high variance of wd
-sort_by = 'wd_var'  # 'wd_var' for variance of the wind direction, or 'ws_var' for variance of the wind speeds, or 'ws_max'
-rank = -5 # choose 0 for lowest, choose -1 for highest. Index of the sorted (by variance) list of indexes
-idx_to_plot = idxs_sorted_by[sort_by][rank]
-ws_to_plot = df_WRF[ws_cols].iloc[idx_to_plot].to_numpy()
-cm = matplotlib.cm.cividis
-norm = matplotlib.colors.Normalize()
-sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
-ws_colors = cm(norm(ws_to_plot))
-wd_to_plot = np.deg2rad(df_WRF[wd_cols].iloc[idx_to_plot].to_numpy())
-plt.figure(figsize=(4,6), dpi=300)
-plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot),
-           color=ws_colors, angles='uv', scale=100, width= 0.015, headlength=3, headaxislength=3)
-cbar = plt.colorbar(sm)
-cbar.set_label('U [m/s]')
-plt.title(f'Sort by: {sort_by}. Rank: {rank}. U_tresh: {U_tresh}')
-plt.xlim(5.366, 5.386)
-plt.ylim(60.082, 60.133)
-plt.xlabel('Longitude [$\degree$]')
-plt.ylabel('Latitude [$\degree$]')
-plt.gca().set_aspect('equal', adjustable='box')
-plt.tight_layout()
-plt.show()
+# sort_by = 'wd_var'  # 'wd_var' for variance of the wind direction, or 'ws_var' for variance of the wind speeds, or 'ws_max'
+# rank = -1 # choose 0 for lowest, choose -1 for highest. Index of the sorted (by variance) list of indexes
+
+
+def Nw_ws_wd_func(sort_by, rank, plot_idx=False):
+    """
+    sort_by: sort all the WRF 1h values of ws and wd by asceding order. Use 'wd_var' to sort by variance of the wind direction, or 'ws_var' by variance of  wind speeds, or 'ws_max'
+    Rank: Index or Slice (!) of the sorted arrays ws and wd. E.g.: '0' is the first element (smaller); '-1' is the last (largest); 'slice(0,10)' are the first 10 elements
+    Returns nonhomogeneous wind (Nw) ws (wind speeds) and wd (wind directions)
+    """
+
+    idx_to_plot = idxs_sorted_by[sort_by][rank]
+    ws_to_plot = df_WRF[ws_cols].iloc[idx_to_plot].to_numpy()
+    wd_to_plot = np.deg2rad(df_WRF[wd_cols].iloc[idx_to_plot].to_numpy())
+
+    if plot_idx is not False:
+        cm = matplotlib.cm.cividis
+        norm = matplotlib.colors.Normalize()
+        sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
+        ws_colors = cm(norm(ws_to_plot[plot_idx]))
+        plt.figure(figsize=(4,6), dpi=300)
+        plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot[plot_idx] * np.sin(wd_to_plot[plot_idx]), -ws_to_plot[plot_idx] * np.cos(wd_to_plot[plot_idx]),
+                   color=ws_colors, angles='uv', scale=100, width= 0.015, headlength=3, headaxislength=3)
+        cbar = plt.colorbar(sm)
+        cbar.set_label('U [m/s]')
+        plt.title(f'Sort by: {sort_by}. Rank: {rank}. U_tresh: {U_tresh}')
+        plt.xlim(5.366, 5.386)
+        plt.ylim(60.082, 60.133)
+        plt.xlabel('Longitude [$\degree$]')
+        plt.ylabel('Latitude [$\degree$]')
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.tight_layout()
+        plt.show()
+    return ws_to_plot, wd_to_plot
+
+
+
 

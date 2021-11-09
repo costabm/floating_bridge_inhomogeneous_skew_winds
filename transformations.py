@@ -710,7 +710,6 @@ def mat_Ls_elem_Gs_elem_all_func(mat_Gs_elem, g_node_coor, p_node_coor, alpha):
 def mat_Ls_node_Gs_node_all_func(mat_Gs_node, g_node_coor, p_node_coor, alpha):
     """
     Converts e.g. a global nodal displacement matrix with shape (total num nodes, 6), to a local one (same shape).
-    matrix with shape (total num elem, 12).
     """
     T_LsGs_all_6g_6p_matrix = T_LsGs_all_6g_6p_matrix_func(g_node_coor, p_node_coor, alpha)
     mat_Ls_node = np.einsum('nij,nj->ni', T_LsGs_all_6g_6p_matrix, mat_Gs_node)
@@ -722,6 +721,17 @@ def vec_Ls_elem_Ls_node_girder_func(vec_Ls_node):
     Converts a local nodal vector vec_Ls_node (e.g. alpha vector) with shape (g_node_num), to a local element vec_Ls_elem  with shape (g_elem_num).
     """
     return np.array([(vec_Ls_node[i]+vec_Ls_node[i+1])/2 for i in range(len(vec_Ls_node)-1)])
+
+def mat_6_Ls_node_12_Ls_elem_girder_func(mat_Ls_elem):
+    """
+    Not a transformation matrix.
+    Converts a local girder element matrix (e.g. internal forces R_loc_sw[:g_elem_num]) with shape (g_elem_num, 12), to a local girder node matrix (g_node_num, 6).
+    To achieve this, the first 6 degrees of freedom of each element are taken for all the nodes except the last one, which will take the last 6 DOF of the last element.
+    The signs must be adapted accordingly.
+    Make sure the first input dimension is actually the one with g_elem_num
+    """
+    g_elem_num = mat_Ls_elem.shape[0]
+    return np.concatenate((mat_Ls_elem[:g_elem_num,0:6], np.array([mat_Ls_elem[g_elem_num,6:12]])))  # todo: WRONG, COMPLETE THIS BERNARDO 09/11/2021
 
 def U_to_Uyz(beta, theta, U):
     """

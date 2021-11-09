@@ -12,16 +12,23 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from mass_and_stiffness_matrix import mass_matrix_func, stiff_matrix_func, geom_stiff_matrix_func
-from transformations import mat_Ls_node_Gs_node_all_func
+from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_node_coor_func, R, arc_length, zbridge, bridge_shape, g_s_3D_func
+from transformations import mat_Ls_node_Gs_node_all_func, from_cos_sin_to_0_2pi, mat_6_Ls_node_12_Ls_elem_girder_func
 from modal_analysis import modal_analysis_func, simplified_modal_analysis_func
-from buffeting import buffeting_FD_func, rad, deg, list_of_cases_FD_func, parametric_buffeting_FD_func, U_bar_func, buffeting_TD_func, list_of_cases_TD_func, parametric_buffeting_TD_func
+from static_loads import static_wind_func
+from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R
+from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func
+from nonhomogeneity import Nw_U_bar_func, Nw_beta_and_theta_bar_func, Nw_static_wind_func, interpolate_from_WRF_nodes_to_g_nodes, n_WRF_nodes, WRF_node_coor
+from buffeting import buffeting_FD_func, rad, deg, list_of_cases_FD_func, parametric_buffeting_FD_func, U_bar_func, buffeting_TD_func, list_of_cases_TD_func, parametric_buffeting_TD_func, beta_0_func
 import copy
 from static_loads import static_dead_loads_func, R_loc_func
 
 start_time = time.time()
 run_modal_analysis = False
-run_DL = True  # include Dead Loads, for all analyses.
-run_SW_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+run_DL = False  # include Dead Loads, for all analyses.
+run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+run_Nw_sw = True # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+
 run_modal_analysis_after_static_loads = False
 
 generate_new_C_Ci_grid = True  # todo: attention!
@@ -161,7 +168,7 @@ else:  # file exists but generate_new_C_Ci_grid == False:
     print('Warning: Already existing C_Ci_grid.npy file will be used!')
 
 ########################################################################################################################
-# Separate static wind (SW) analysis, with DL as input and modal analysis output. Buffeting has its own SW analysis.
+# Separate static wind (sw) analysis, with DL as input and modal analysis output. Buffeting has its own SW analysis.
 ########################################################################################################################
 if run_modal_analysis_after_static_loads:
     # Temporary structure, only for new modal analysis
@@ -171,8 +178,7 @@ if run_modal_analysis_after_static_loads:
     girder_N_temp = copy.deepcopy(girder_N)
     c_N_temp = copy.deepcopy(c_N)
     alpha_temp = copy.deepcopy(alpha)
-    if run_SW_for_modal:
-        from static_loads import static_wind_func
+    if run_sw_for_modal:
         U_bar = U_bar_func(g_node_coor)
         # Displacements
         g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB=rad(100), theta_0=rad(0), aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
@@ -247,6 +253,79 @@ if run_modal_analysis_after_static_loads:
         print("--- %s seconds ---" % (time.time() - start_time))
         return None
     plot_mode_shape_func(n_modes_plot = 10) if plot_mode_shape else None
+
+########################################################################################################################
+# Separate nonhomogeneous static wind (Nw_sw) analysis. Note: buffeting has its own SW analysis.
+########################################################################################################################
+if run_Nw_sw:
+    # Get nonhomogeneous wind (Nw) data:
+    sort_by = 'ws_max'
+    ws_1h_all, wd_1h_all = Nw_ws_wd_func(sort_by, rank=slice(None,None,-1), plot_idx=0)  # by choosing step=-1 (inside the slice()), the highest values of e.g. ws_max are indexed first-
+    Nw_U_bar_at_WRF_nodes = ws_1h_all
+    Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
+    Nw_beta_DB_sin = interpolate_from_WRF_nodes_to_g_nodes(np.sin(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
+    Nw_beta_DB_all = from_cos_sin_to_0_2pi(Nw_beta_DB_cos, Nw_beta_DB_sin, out_units='rad')
+    Nw_beta_0_all = beta_0_func(Nw_beta_DB_all)
+    Nw_theta_0_all = (copy.deepcopy(Nw_beta_0_all) * 0 + 1) * np.deg2rad(0)
+    force_Nw_U_bar_and_U_bar_to_have_same = None
+    Nw_U_bar_all = Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_bar_and_U_bar_to_have_same)
+    n_cases_to_plot = 3  # you can use None to actually plot ALL
+
+    D_loc_sw_all = []
+    R_loc_sw_all = []
+    for i, (Nw_U_bar, Nw_beta_0, Nw_theta_0) in enumerate(zip(Nw_U_bar_all[:n_cases_to_plot], Nw_beta_0_all[:n_cases_to_plot], Nw_theta_0_all[:n_cases_to_plot])):
+        # Temporary structure for plotting and modal purposes (new Nw_sw analysis will be done in the "AERODYNAMIC ANALYSIS" block):
+        # g_node_coor_temp, p_node_coor_temp = copy.deepcopy(g_node_coor), copy.deepcopy(p_node_coor)
+        # R_loc_temp = copy.deepcopy(R_loc)  # element local forces
+        # D_loc_temp = copy.deepcopy(D_loc)  # nodal global displacements. Includes the alphas.
+        # girder_N_temp = copy.deepcopy(girder_N)
+        # c_N_temp = copy.deepcopy(c_N)
+        # alpha_temp = copy.deepcopy(alpha)
+
+        # Displacements
+        g_node_coor_sw, p_node_coor_sw, D_glob_sw = Nw_static_wind_func(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_0, Nw_theta_0, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
+        D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
+
+        # alpha_sw = copy.deepcopy(D_loc_sw[:g_node_num, 3])  # Global nodal torsional rotation.
+
+        # Internal forces
+        R_loc_sw = R_loc_func(D_glob_sw, g_node_coor, p_node_coor, alpha)  # orig. coord. + displacem. used to calc. R.
+
+        # girder_N_sw = copy.deepcopy(R_loc_sw[:g_elem_num, 0])  # local girder element axial force. Positive = compression!
+        # c_N_sw = copy.deepcopy(R_loc_sw[g_elem_num:, 0])  # local column element axial force Positive = compression!
+        # # Temporary structure is updated. This is a separate analysis for the new modal analysis only.
+        # g_node_coor_temp, p_node_coor_temp = copy.deepcopy(g_node_coor_sw), copy.deepcopy(p_node_coor_sw)
+        # R_loc_temp += copy.deepcopy(R_loc_sw)  # element local forces
+        # D_loc_temp += copy.deepcopy(D_loc_sw)  # nodal global displacements. Includes the alphas.
+        # girder_N_temp += copy.deepcopy(girder_N_sw)
+        # c_N_temp += copy.deepcopy(c_N_sw)
+        # alpha_temp += copy.deepcopy(alpha_sw)
+
+        # Storing
+        D_loc_sw_all.append(D_loc_sw)
+        R_loc_sw_all.append(R_loc_sw)
+
+        # # TRASH
+        # # Plotting
+        print(f'Ploting case {i}')
+        # plt.title(f'{n_cases_to_plot} cases, sorted by {sort_by}')
+        # # plt.plot(D_loc_sw[:g_node_num,1], alpha=1 if i < 10 else 0.1, c='red' if i < 10 else 'blue')
+        # plt.plot(R_loc_sw[:g_node_num, 1], alpha=1 if i < 10 else 0.1, c='red' if i < 10 else 'blue')
+    # plt.show()
+
+    plt.title(f'{n_cases_to_plot} cases, sorted by {sort_by}')
+    # plt.plot(D_loc_sw[:g_node_num,1], alpha=1 if i < 10 else 0.1, c='red' if i < 10 else 'blue')
+    for case in range(n_cases_to_plot):
+        # for dof in range(6):
+        dof = 2
+        # plt.plot(R_loc_sw_all[case][:g_elem_num, 5], alpha=1 if case < 10 else 0.1, c='red' if case < 10 else 'blue')
+        # plt.plot(R_loc_sw_all[case][:g_elem_num, dof], alpha=0.5, c='blue', label='R')
+        plt.plot(mat_6_Ls_node_12_Ls_elem_girder_func(D_loc_sw_all[case])[dof], alpha=0.5, c='orange', label=f'D_{dof}')
+        # plt.plot(R_loc_sw_all[case][1:g_elem_num-1, dof+6], alpha=0.5, c='red')
+        # plt.plot(R_loc_sw_all[case][1:g_elem_num, dof] + R_loc_sw_all[case][:g_elem_num-1, dof+6], alpha=0.5, c='green')
+    plt.show()
+
+
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ########################################################################################################################

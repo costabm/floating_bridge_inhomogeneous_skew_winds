@@ -97,8 +97,9 @@ def delta_array_func(array):
 ########################################################################################################################
 def beta_0_func(beta_DB):
     beta_0 = rad(100) - beta_DB  # [rad]. Global XYZ mean yaw angle, where both bridge ends fall on X-axis. Convention used as in Fig.1 (of the mentioned paper). beta_DB = 100 <=> beta_0 = 0. beta_DB = 80 <=> beta_0 = 20 [deg].
-    beta_0 = rad(180) - (rad(-180) - beta_0) if beta_0 <= rad(-180) else beta_0  # converting to interval [rad(-180),rad(180)]. Confirm with: print('beta_DB = ', round(deg(beta_DB)), ' beta_0 = ', round(deg(beta_0)))
+    beta_0 = np.where(beta_0<=rad(-180), rad(180) - (rad(-180) - beta_0), beta_0)  # converting to interval [rad(-180),rad(180)]. Confirm with: print('beta_DB = ', round(deg(beta_DB)), ' beta_0 = ', round(deg(beta_0)))
     return beta_0
+
 
 def U_bar_func(g_node_coor, RP=RP):
     """ 10min mean wind """  #
