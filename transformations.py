@@ -724,14 +724,19 @@ def vec_Ls_elem_Ls_node_girder_func(vec_Ls_node):
 
 def mat_6_Ls_node_12_Ls_elem_girder_func(mat_Ls_elem):
     """
-    Not a transformation matrix.
+    Not a transformation matrix. Make sure the first input dimension is actually the one with g_elem_num
     Converts a local girder element matrix (e.g. internal forces R_loc_sw[:g_elem_num]) with shape (g_elem_num, 12), to a local girder node matrix (g_node_num, 6).
     To achieve this, the first 6 degrees of freedom of each element are taken for all the nodes except the last one, which will take the last 6 DOF of the last element.
-    The signs must be adapted accordingly.
-    Make sure the first input dimension is actually the one with g_elem_num
+    The signs are inverted in the last 6 DOF accordingly.
+    Please note that this method causes repetition of the results of the first 4 DOF (in the last element) and only for the last 2 DOF (bending moments of the last element) does this make some sense.
+    In other words:
+    There is a question on how to plot forces and moments, from the given 12 DOF internal force matrices R_loc.
+    For the forces & torsion it's OK to plot only the first 6 DOF of each 12 DOF girder element. However, for the bending moments, one should also append the results of the last 6 DOF of the last element!
+    For this reason, the mat_6_Ls_node_12_Ls_elem_girder_func is used for all forces+moments, even though the last plotted point for the forces & torsion will seem repeated (since only the bending moments change along an element)
+
     """
     g_elem_num = mat_Ls_elem.shape[0]
-    return np.concatenate((mat_Ls_elem[:g_elem_num,0:6], np.array([mat_Ls_elem[g_elem_num,6:12]])))  # todo: WRONG, COMPLETE THIS BERNARDO 09/11/2021
+    return np.concatenate((mat_Ls_elem[:g_elem_num,0:6], -1*np.array([mat_Ls_elem[g_elem_num-1,6:12]])))  # todo: WRONG, COMPLETE THIS BERNARDO 09/11/2021
 
 def U_to_Uyz(beta, theta, U):
     """

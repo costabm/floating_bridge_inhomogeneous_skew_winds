@@ -64,26 +64,40 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 # # todo: delete above
 
 
-def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
+def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same=None):
     """
     Returns a vector of Nonhomogeneous mean wind at each of the g_nodes
-    force_Nw_and_U_bar_to_have_same_avg : None or '', 'mean', 'energy'. force the Nw_U_bar_at_WRF_nodes to have the same e.g. mean 1, and thus when multiplied with U_bar, the result will have the same mean (of all nodes) wind
+    force_Nw_and_U_bar_to_have_same_avg : None, 'mean', 'energy'. force the Nw_U_bar_at_WRF_nodes to have the same e.g. mean 1, and thus when multiplied with U_bar, the result will have the same mean (of all nodes) wind
     """
     assert Nw_U_bar_at_WRF_nodes.shape[-1] == n_WRF_nodes
     U_bar_10min = U_bar_func(g_node_coor)
     interp_fun = interpolate_from_WRF_nodes_to_g_nodes(Nw_U_bar_at_WRF_nodes, g_node_coor, WRF_node_coor)
-    if force_Nw_U_bar_and_U_bar_to_have_same =='mean':
+    if force_Nw_U_and_N400_U_to_have_same == 'mean':
         Nw_U_bar = U_bar_10min *        ( interp_fun / np.mean(interp_fun) )
         assert np.isclose(np.mean(Nw_U_bar), np.mean(U_bar_10min))        # same mean(U)
-    elif force_Nw_U_bar_and_U_bar_to_have_same =='energy':
+    elif force_Nw_U_and_N400_U_to_have_same == 'energy':
         Nw_U_bar = U_bar_10min * np.sqrt( interp_fun / np.mean(interp_fun) )
         assert np.isclose(np.mean(Nw_U_bar**2), np.mean(U_bar_10min**2))  # same energy = same mean(U**2)
     else:
         Nw_U_bar = interp_fun
     return Nw_U_bar
 
-
 # Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes=ws_to_plot, force_Nw_U_bar_and_U_bar_to_have_same=None)
+
+def U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
+    """
+    Returns a homogeneous wind velocity field, equivalent to the input Nw_U_bar in terms of force_Nw_U_bar_and_U_bar_to_have_same
+    force_Nw_U_bar_and_U_bar_to_have_same: None, 'mean', 'energy'. force the U_bar_equivalent to have the same mean or energy 1 as Nw_U_bar
+    """
+    if force_Nw_U_bar_and_U_bar_to_have_same is None:
+        U_bar_equivalent = U_bar_func(g_node_coor)
+    elif force_Nw_U_bar_and_U_bar_to_have_same == 'mean':
+        U_bar_equivalent = np.ones(Nw_U_bar.shape) * np.mean(Nw_U_bar)
+        assert np.isclose(np.mean(Nw_U_bar), np.mean(U_bar_equivalent))
+    elif force_Nw_U_bar_and_U_bar_to_have_same == 'energy':
+        U_bar_equivalent = np.ones(Nw_U_bar.shape) * np.sqrt(np.mean(Nw_U_bar**2))
+        assert np.isclose(np.mean(Nw_U_bar ** 2), np.mean(U_bar_equivalent ** 2))  # same energy = same mean(U**2)
+    return U_bar_equivalent
 
 
 def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
