@@ -411,6 +411,7 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
     # plt.plot(cross_spec_3)
     return S_aa
 
+
 ########################################################################################################################
 # Aerodynamic properties and forces
 ########################################################################################################################
@@ -1090,7 +1091,7 @@ def Fad_one_t_C_Ci_NL_with_SE(g_node_coor, p_node_coor, alpha, beta_0, theta_0, 
 ########################################################################################################################
 def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, skew_approach, include_SE, flutter_derivatives_type, n_modes, f_min, f_max, n_freq, g_node_coor, p_node_coor,
                       Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep, dtype_in_response_spectra, generate_spectra_for_discretization=False):
-    print('beta_DB (deg) = '+str(round(deg(beta_DB), 1)))
+    print('beta_DB (deg) = '+str(np.round(deg(beta_DB), 1)))
     start_time_1 = time.time()
     g_node_num = len(g_node_coor)
     g_elem_num = g_node_num - 1
@@ -1099,7 +1100,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         f_array = np.linspace(f_min, f_max, n_freq)
     elif f_array_type == 'equal_energy_bins':
         print("""When using f_array_type = 'equal_energy_bins' make sure f_array.npy and max_S_delta_local.npy are both representative of the response and are very well discretized""")
-        f_array = discretize_S_delta_local_by_equal_energies(f_array=np.load(r"results\f_array.npy"), max_S_delta_local=np.load(r"results\max_S_delta_local.npy") ,n_freq_desired=n_freq, plot=False)
+        f_array = discretize_S_delta_local_by_equal_energies(f_array=np.load(r"intermediate_results\f_array.npy"), max_S_delta_local=np.load(r"intermediate_results\max_S_delta_local.npy") ,n_freq_desired=n_freq, plot=False)
 
     n_freq = len(f_array)
     w_array = f_array * 2 * np.pi
@@ -1344,8 +1345,8 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
 
     if generate_spectra_for_discretization:
         max_S_delta_local = np.max(np.real(S_delta_local), axis=1)  # Maximum along bridge girder. Shape (n_freq, 6)
-        np.save(r"results\max_S_delta_local.npy", max_S_delta_local)
-        np.save(r"results\f_array.npy", f_array)
+        np.save(r"intermediate_results\max_S_delta_local.npy", max_S_delta_local)
+        np.save(r"intermediate_results\f_array.npy", f_array)
 
     # CONFIRMING THAT THE GLOBAL CAN BE AGAIN RETRIEVED FROM THE LOCAL. (backG - back to Global):
     # S_deltadelta_backG = np.einsum('miu, wmnuv, nvj->wmnij', T_GsLs_6, S_deltadelta_local, T_LsGs_6)

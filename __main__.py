@@ -9,6 +9,7 @@ email: bernamdc@gmail.com
 import os
 import sys
 import time
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from mass_and_stiffness_matrix import mass_matrix_func, stiff_matrix_func, geom_stiff_matrix_func
@@ -260,7 +261,8 @@ if run_modal_analysis_after_static_loads:
 if run_Nw_sw:
     # Get nonhomogeneous wind (Nw) data:
     sort_by = 'ws_max'  # sort all the WRF 1h values of ws and wd by asceding order. Use 'wd_var' to sort by variance of the wind direction, or 'ws_var' by variance of  wind speeds, or 'ws_max'
-    ws_1h_all, wd_1h_all = Nw_ws_wd_func(sort_by, rank=slice(None,None,-1), plot_idx=0)  # by choosing step=-1 (inside the slice()), the highest values of e.g. ws_max are indexed first-
+    plot_idx = 0
+    ws_1h_all, wd_1h_all = Nw_ws_wd_func(sort_by, rank=slice(None,None,-1), plot_idx=plot_idx)  # by choosing step=-1 (inside the slice()), the highest values of e.g. ws_max are indexed first-
     n_WRF_cases = ws_1h_all.shape[0]
     Nw_U_bar_at_WRF_nodes = ws_1h_all
     Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
@@ -270,11 +272,14 @@ if run_Nw_sw:
     Nw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
     force_Nw_U_and_N400_U_to_have_same = None
     Nw_U_bar_all = Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same)
-    n_cases_to_plot = copy.deepcopy(n_WRF_cases)  # you can use None to actually plot ALL
+    # Decide which cases to plot
+    case_slice_to_plot = slice(None)  # e.g. slice(0,10) for first 10 cases; slice(None) to plot ALL cases
+    case_list_to_plot = list(range(n_WRF_cases)[case_slice_to_plot])
+    n_cases_to_plot = len(case_list_to_plot)
 
     # Get Homogenous wind (Hw) data, for comparison, with equivalent 'mean' or 'energy'. If simply 'None' then its equal to N400
     eqv_Hw_U_bar_method = 'energy'  # 'mean' or 'energy' (or None)
-    eqv_Hw_beta_method = 'mean'  # 'mean' or 'U_weighted_mean' or 'U2_weighted_mean' todo: not implemented
+    eqv_Hw_beta_method = 'U2_weighted_mean'  # 'mean' or 'U_weighted_mean' or 'U2_weighted_mean'
     Hw_U_bar_all = U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar_all, force_Nw_U_bar_and_U_bar_to_have_same=eqv_Hw_U_bar_method)
     if eqv_Hw_beta_method == 'mean':
         Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(Nw_beta_0_all), axis=1)[:,None], repeats=g_node_num, axis=1)   # making the average of all betas along the bridge girder
@@ -282,11 +287,14 @@ if run_Nw_sw:
     elif eqv_Hw_beta_method == 'U_weighted_mean':
         Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
         Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    elif eqv_Hw_beta_method == 'U2_weighted_mean':
+        Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all**2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+        Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all**2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
     Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad')) # making the average of all betas along the bridge girder
     Hw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
 
     # Non-homogenous and Homogeneous static wind analysis results
-    def D_loc_and_R6g_from_all_static_wind_cases(Nw_U_bar_all, Nw_beta_0_all, Nw_theta_0_all):
+    def D_loc_and_R6g_from_all_static_wind_cases(Nw_U_bar_all, Nw_beta_0_all, Nw_theta_0_all, case_slice_to_plot, g_node_coor, p_node_coor, alpha):
         """
         From given U_bar, beta_0 and theta_0, and a static wind analysis, obtain:
          1 - displacements at all girder nodes.
@@ -295,38 +303,68 @@ if run_Nw_sw:
         Inputs shape(n_cases, g_node_num)
         Outputs shape(n_cases, g_node_num, 6)
         """
-        Nw_D_loc_all = []  # displacements
-        Nw_R12_all = []  # internal forces 12 DOF
-        for i, (Nw_U_bar, Nw_beta_0, Nw_theta_0) in enumerate(zip(Nw_U_bar_all[:n_cases_to_plot], Nw_beta_0_all[:n_cases_to_plot], Nw_theta_0_all[:n_cases_to_plot])):
+        g_node_num = len(g_node_coor)
+        g_elem_num = g_node_num - 1
+        case_list_to_plot = list(range(n_WRF_cases)[case_slice_to_plot])
+        n_cases_to_plot = len(case_list_to_plot)
+        Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all = [], [], []
+        Nw_D_loc_all = []  # displacements in local coordinates
+        Nw_R12_all = []  # internal element forces 12 DOF
+        for i, (Nw_U_bar, Nw_beta_0, Nw_theta_0) in enumerate(zip(Nw_U_bar_all[case_slice_to_plot], Nw_beta_0_all[case_slice_to_plot], Nw_theta_0_all[case_slice_to_plot])):
             print(f'Calculating sw... Case: {i}')
-            Nw_g_node_coor, Nw_p_node_coor, Nw_D_glob = Nw_static_wind_func(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_0, Nw_theta_0, aero_coef_method='2D_fit_cons', n_aero_coef=6,
-                                                                            skew_approach='3D')
+            Nw_g_node_coor, Nw_p_node_coor, Nw_D_glob = Nw_static_wind_func(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_0, Nw_theta_0, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
             Nw_D_loc = mat_Ls_node_Gs_node_all_func(Nw_D_glob, g_node_coor, p_node_coor, alpha)  # Displacements in local coordinates
             Nw_R_loc = R_loc_func(Nw_D_glob, g_node_coor, p_node_coor, alpha)  # # Internal forces. orig. coord. + displacem. used to calc. R.
+            Nw_g_node_coor_all.append(Nw_g_node_coor)  # Storing
+            Nw_p_node_coor_all.append(Nw_p_node_coor)  # Storing
+            Nw_D_glob_all.append(Nw_D_glob)  # Storing
             Nw_D_loc_all.append(Nw_D_loc)  # Storing
             Nw_R12_all.append(Nw_R_loc)  # Storing
+        # Converting to arrays:
+        Nw_g_node_coor_all = np.array(Nw_g_node_coor_all)
+        Nw_p_node_coor_all = np.array(Nw_p_node_coor_all)
+        Nw_D_glob_all = np.array(Nw_D_glob_all)
         Nw_D_loc_all = np.array(Nw_D_loc_all)
         Nw_R12_all = np.array(Nw_R12_all)  # R12 -> Internal forces represented as the 12 DOF of each element
         Nw_R12g_all = Nw_R12_all[:, :g_elem_num]  # g -> girder elements only
-        Nw_R6g_all = np.array([mat_6_Ls_node_12_Ls_elem_girder_func(Nw_R12g_all[i]) for i in
-                               range(n_cases_to_plot)])  # From 12DOF to 6DOF (first 6 DOF of each 12DOF element + last 6 DOF of the last element. See description of the function for details)
-        Nw_R6g_abs_all = np.abs(Nw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
-        return Nw_D_loc_all, Nw_R6g_abs_all
-    Nw_D_loc_all, Nw_R6g_abs_all = D_loc_and_R6g_from_all_static_wind_cases(Nw_U_bar_all, Nw_beta_0_all, Nw_theta_0_all)
-    Hw_D_loc_all, Hw_R6g_abs_all = D_loc_and_R6g_from_all_static_wind_cases(Hw_U_bar_all, Hw_beta_0_all, Hw_theta_0_all)
+        Nw_R6g_all = np.array([mat_6_Ls_node_12_Ls_elem_girder_func(Nw_R12g_all[i]) for i in range(n_cases_to_plot)])  # From 12DOF to 6DOF (first 6 DOF of each 12DOF element + last 6 DOF of the last element. See description of the function for details)
+        return Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R6g_all
+    Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R6g_all = D_loc_and_R6g_from_all_static_wind_cases(Nw_U_bar_all, Nw_beta_0_all, Nw_theta_0_all, case_slice_to_plot, g_node_coor, p_node_coor, alpha)
+    Hw_g_node_coor_all, Hw_p_node_coor_all, Hw_D_glob_all, Hw_D_loc_all, Hw_R6g_all = D_loc_and_R6g_from_all_static_wind_cases(Hw_U_bar_all, Hw_beta_0_all, Hw_theta_0_all, case_slice_to_plot, g_node_coor, p_node_coor, alpha)
+
+    # Other post post-processing
+    Nw_R6g_abs_all = np.abs(Nw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
+    Hw_R6g_abs_all = np.abs(Hw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
     Nw_R6g_abs_max = np.max(Nw_R6g_abs_all, axis=0)
     Hw_R6g_abs_max = np.max(Hw_R6g_abs_all, axis=0)
 
+    # Saving dict with all results
+    Nw_dict_all_results = {'g_node_coor':Nw_g_node_coor_all.tolist(), 'p_node_coor':Nw_p_node_coor_all.tolist(), 'D_glob':Nw_D_glob_all.tolist(), 'D_loc':Nw_D_loc_all.tolist(), 'R6g':Nw_R6g_all.tolist()}
+    Hw_dict_all_results = {'g_node_coor':Hw_g_node_coor_all.tolist(), 'p_node_coor':Hw_p_node_coor_all.tolist(), 'D_glob':Hw_D_glob_all.tolist(), 'D_loc':Hw_D_loc_all.tolist(), 'R6g':Hw_R6g_all.tolist()}
+    with open(r'intermediate_results\\static_wind\\Nw_dict_all_results.json', 'w', encoding='utf-8') as f:
+        json.dump(Nw_dict_all_results, f, ensure_ascii=False, indent=4)
+    with open(r'intermediate_results\\static_wind\\Hw_dict_all_results.json', 'w', encoding='utf-8') as f:
+        json.dump(Hw_dict_all_results, f, ensure_ascii=False, indent=4)
+
     # Plotting
     for dof in [0,5]:
-        plt.title(f'{n_cases_to_plot} cases. Sort by "{sort_by}". DOF {dof}')
+        plt.figure(dpi=500)
+        plt.title(f'Plot slice {case_slice_to_plot}. Sort by "{sort_by}". DOF {dof}')
         for case in range(n_cases_to_plot):
-            plt.plot(Nw_R6g_abs_all[case,:,dof], alpha=0.1, c='orange')
-            plt.plot(Hw_R6g_abs_all[case,:,dof], alpha=0.1, c='blue')
+            plt.plot(Nw_R6g_abs_all[case,:,dof], lw=0.5, alpha=0.1, c='orange')
+            plt.plot(Hw_R6g_abs_all[case,:,dof], lw=0.5, alpha=0.1, c='blue')
         plt.plot(Nw_R6g_abs_max[:, dof], alpha=0.8, c='orange', lw=3, label=f'Inhomogeneous')
         plt.plot(Hw_R6g_abs_max[:, dof], alpha=0.8, c='blue', lw=3, label=f'Homogeneous')
-        plt.legend()
-        plt.show()
+        plt.legend(loc=9)
+        plt.savefig(r'results\All_Nw_vs_Hw_cases_DOF_'+str(dof)+'.png')
+        plt.close()
+
+
+# # TRASH tests
+# plt.plot(Nw_U_bar_all[case_slice_to_plot][0])
+# plt.plot(Hw_U_bar_all[case_slice_to_plot][0])
+# plt.show()
+
 
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -391,14 +429,6 @@ parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplif
 # pr.disable()
 # pr.print_stats(sort='cumtime')
 
-# todo: delete the 6 lines below
-include_sw_cases = [False]  # include static wind effects or not (initial angle of attack and geometric stiffness)
-include_KG_cases = [False]
-list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases,
-                                   flutter_derivatives_type_cases, n_freq_cases, n_modes_cases, n_nodes_cases,
-                                   f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases, f_array_type_cases, make_M_C_freq_dep_cases, dtype_in_response_spectra_cases)
-parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal)
-# todo: delete the 6 lines above
 
 ########################################################################################################################
 # Time domain buffeting analysis:
