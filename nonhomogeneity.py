@@ -6,8 +6,12 @@ email: bernamdc@gmail.com
 "Nw" is short for "Nonhomogeneous wind" and is extensively used in this script
 """
 
+import os
+import datetime
 import json
+import netCDF4
 import numpy as np
+import pandas as pd
 from scipy import interpolate
 from buffeting import U_bar_func, beta_0_func, RP, Pb_func
 from mass_and_stiffness_matrix import stiff_matrix_func, stiff_matrix_12b_local_func, stiff_matrix_12c_local_func, linmass, SDL
@@ -21,6 +25,63 @@ n_WRF_nodes = n_bridge_WRF_nodes
 WRF_node_coor = g_node_coor_func(R=R, arc_length=arc_length, pontoons_s=[], zbridge=zbridge, FEM_max_length=arc_length/(n_WRF_nodes-1), bridge_shape=bridge_shape)  # needs to be calculated
 
 
+class NwClass:
+    """
+    Non-homogeneous wind class
+    """
+    def __init__(self):
+        self.Iu_model = 'ANN'  # 'ANN' or 'EN'
+        self.df_WRF = None  # Dataframe with WRF speeds and directions
+        self.sorted_idxs = None  # Sorted indexes by a given
+        self.sorted_idxs_method = None
+
+    def load_WRF_df(self, U_tresh=12, tresh_requirement_type='any', sort_by='time'):
+        """
+        U_tresh: e.g. 12  # m/s. threshold. Data rows with datapoints below threshold, are removed.
+        tresh_requirement_type: 'any' to keep all cases where at least 1 U is above U_tresh; 'all' to keep only cases where all U >= U_tresh
+        sort_by: 'time', 'ws_var', 'ws_max', 'wd_var'
+        """
+        WRF_dataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'r', format='NETCDF4')
+        ws_orig = WRF_dataset['ws'][:].data  # original data
+        wd_orig = WRF_dataset['wd'][:].data
+        time_orig = WRF_dataset['time'][:].data
+        n_bridge_nodes = np.shape(ws_orig)[0]
+        ws_cols = [f'ws_{n:02}' for n in range(n_bridge_nodes)]
+        wd_cols = [f'wd_{n:02}' for n in range(n_bridge_nodes)]
+        df_WRF = pd.DataFrame(ws_orig.T, columns=ws_cols)
+        df_WRF = df_WRF.join(pd.DataFrame(wd_orig.T, columns=wd_cols))
+        df_WRF['hour'] = time_orig
+        df_WRF['datetime'] = [datetime.datetime.min + datetime.timedelta(hours=int(time_orig[i])) - datetime.timedelta(days=2) for i in range(len(time_orig))]
+        # Filtering
+        idx_to_keep = df_WRF[ws_cols] >= U_tresh
+        if tresh_requirement_type == 'any':
+            idx_to_keep = idx_to_keep.any(axis='columns')  # choose .any() to keep rows with at least one value above treshold, or .all() to keep only rows where all values are above treshold
+        elif tresh_requirement_type == 'all':
+            idx_to_keep = idx_to_keep.all(axis='columns')  # choose .any() to keep rows with at least one value above treshold, or .all() to keep only rows where all values are above treshold
+        else:
+            raise ValueError
+        df_WRF = df_WRF.loc[idx_to_keep].reset_index(drop=True)
+        # Sorting
+        ws = df_WRF[ws_cols]
+        wd = np.deg2rad(df_WRF[wd_cols])
+        wd_cos = np.cos(wd)
+        wd_sin = np.sin(wd)
+        wd_cos_var = np.var(wd_cos, axis=1)
+        wd_sin_var = np.var(wd_sin, axis=1)
+        idxs_sorted_by = {'time':   np.arange(df_WRF.shape[0]),
+                          'ws_var': np.array(np.argsort(np.var(ws, axis=1))),
+                          'ws_max': np.array(np.argsort(np.max(ws, axis=1))),
+                          'wd_var': np.array(np.argsort(pd.concat([wd_cos_var, wd_sin_var], axis=1).max(axis=1)))}
+        self.df_WRF = df_WRF.loc[idxs_sorted_by[sort_by]]
+
+    # def calc_beta
+
+
+Nw = NwClass()
+Nw.load_WRF_df(sort_by='ws_max')
+
+Nw.df_WRF
+
 # # Testing consistency between WRF nodes in bridge coordinates and in (lats,lons)
 # test_WRF_node_consistency = True
 # if test_WRF_node_consistency: # Make sure that the R and arc length are consistent in: 1) the bridge model and 2) WRF nodes (the arc along which WRF data is collected)
@@ -29,7 +90,6 @@ WRF_node_coor = g_node_coor_func(R=R, arc_length=arc_length, pontoons_s=[], zbri
 #     WRF_node_coor_2[:, 1] = -WRF_node_coor_2[:, 1]  # attention! bridge_WRF_nodes_coor_func() gives coor in (lats,lons) which is a left-hand system! This converts to right-hand (lats,-lons).
 #     WRF_node_coor_2 = (WRF_node_coor_2 - WRF_node_coor_2[0]) @ np.array([[np.cos(np.deg2rad(-10)), -np.sin(np.deg2rad(-10))], [np.sin(np.deg2rad(-10)), np.cos(np.deg2rad(-10))]])
 #     assert np.allclose(WRF_node_coor[:, :2], WRF_node_coor_2)
-
 
 def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_coor, plot=False):
     """
@@ -57,7 +117,8 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 
 # # todo: delete below
 # import copy
-# from create_WRF_data_at_bridge_nodes_from_minigrid_data import wd_to_plot, ws_to_plot
+# from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func
+# Nw_ws_wd_func()
 # Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_to_plot, dtype=float))
 # Nw_beta_DB_sin = interpolate_from_WRF_nodes_to_g_nodes(np.sin(wd_to_plot, dtype=float))
 # Nw_beta_DB = from_cos_sin_to_0_2pi(Nw_beta_DB_cos, Nw_beta_DB_sin, out_units='rad')
@@ -65,7 +126,7 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 # print(np.rad2deg(Nw_beta_0))
 # Nw_theta_0 = (copy.deepcopy(Nw_beta_0) * 0 + 1) * np.deg2rad(0)
 # alpha = (copy.deepcopy(Nw_beta_0) * 0 + 1) *  np.deg2rad(0)
-# # todo: delete above
+# # # todo: delete above
 
 
 def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same=None):
@@ -74,7 +135,7 @@ def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_h
     force_Nw_and_U_bar_to_have_same_avg : None, 'mean', 'energy'. force the Nw_U_bar_at_WRF_nodes to have the same e.g. mean 1, and thus when multiplied with U_bar, the result will have the same mean (of all nodes) wind
     """
     assert Nw_U_bar_at_WRF_nodes.shape[-1] == n_WRF_nodes
-    U_bar_10min = U_bar_func(g_node_coor)
+    U_bar_10min = U_bar_func(g_node_coor)  # N400
     interp_fun = interpolate_from_WRF_nodes_to_g_nodes(Nw_U_bar_at_WRF_nodes, g_node_coor, WRF_node_coor)
     if force_Nw_U_and_N400_U_to_have_same == 'mean':
         Nw_U_bar = U_bar_10min *        ( interp_fun / np.mean(interp_fun) )
@@ -85,8 +146,8 @@ def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_h
     else:
         Nw_U_bar = interp_fun
     return Nw_U_bar
-
 # Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes=ws_to_plot, force_Nw_U_bar_and_U_bar_to_have_same=None)
+
 
 def U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
     """
@@ -145,7 +206,7 @@ def Nw_static_wind_func(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_0, Nw
     return g_node_coor_sw, p_node_coor_sw, D_glob_sw
 
 
-def get_ANN_Z2_preds(ANN_Z1_preds, EN_Z1_preds, EN_Z2_preds):
+def get_Iu_ANN_Z2_preds(ANN_Z1_preds, EN_Z1_preds, EN_Z2_preds):
     """
     inputs with special format: dict of (points) dicts of ('sector' & 'Iu') lists of floats
 
@@ -173,6 +234,7 @@ def get_ANN_Z2_preds(ANN_Z1_preds, EN_Z1_preds, EN_Z2_preds):
         ANN_Z2_preds[point] = {'sector':ANN_Z1_preds[point]['sector'], 'Iu':Iu_ANN_Z2.tolist()}
     return ANN_Z2_preds
 
+
 def Nw_Iu_all_dirs_database(model='ANN', use_existing_file=True):
     """
     This function is simple but got a bit confusing in the process with too much copy paste...
@@ -191,7 +253,7 @@ def Nw_Iu_all_dirs_database(model='ANN', use_existing_file=True):
                 dict_Iu_48m_EN_preds = json.loads(f.read())
             with open(r"intermediate_results\\Nw_Iu\\Iu_14m_EN_preds.json") as f:
                 dict_Iu_14m_EN_preds = json.loads(f.read())
-            dict_Iu_14m_ANN_preds = get_ANN_Z2_preds(ANN_Z1_preds=dict_Iu_48m_ANN_preds, EN_Z1_preds=dict_Iu_48m_EN_preds, EN_Z2_preds=dict_Iu_14m_EN_preds)
+            dict_Iu_14m_ANN_preds = get_Iu_ANN_Z2_preds(ANN_Z1_preds=dict_Iu_48m_ANN_preds, EN_Z1_preds=dict_Iu_48m_EN_preds, EN_Z2_preds=dict_Iu_14m_EN_preds)
             Iu_14m_ANN_preds_WRF = np.array([dict_Iu_14m_ANN_preds[k]['Iu'] for k in dict_Iu_14m_ANN_preds.keys()]).T  # calculated at 11 WRF nodes
             Iu_14m_ANN_preds = interpolate_from_WRF_nodes_to_g_nodes(Iu_14m_ANN_preds_WRF, g_node_coor, WRF_node_coor, plot=False)  # calculated at the girder nodes
             Iu_14m_ANN_preds = Iu_14m_ANN_preds.T
@@ -202,7 +264,7 @@ def Nw_Iu_all_dirs_database(model='ANN', use_existing_file=True):
             with open(r'intermediate_results\\Nw_Iu\\Iu_14m_ANN_preds_g_nodes.json') as f:
                 Iu_14m_ANN_preds = np.array(json.loads(f.read()))
         return Iu_14m_ANN_preds
-    elif model =='EN':
+    elif model == 'EN':
         if not use_existing_file:
             with open(r"intermediate_results\\Nw_Iu\\Iu_14m_EN_preds.json") as f:
                 dict_Iu_14m_EN_preds = json.loads(f.read())
@@ -220,6 +282,7 @@ def Nw_Iu_all_dirs_database(model='ANN', use_existing_file=True):
 Nw_Iu_all_dirs_database(model='ANN', use_existing_file=False)
 Nw_Iu_all_dirs_database(model='EN', use_existing_file=False)
 
+
 def Nw_Ii_func(Nw_beta_DB, model='ANN'):
     """
     For computer efficiency, nearest neighbour is used (instead of linear inerpolation), assuming 360 directions in the database
@@ -227,17 +290,27 @@ def Nw_Ii_func(Nw_beta_DB, model='ANN'):
     Returns: array that describes Iu, Iv, Iw at each g node, with shape (n_nodes, 3)
     """
     Iu = Nw_Iu_all_dirs_database(model=model, use_existing_file=True)
-    assert Iu.shape[-1] == 360, "360 directions assumed in the database. If not, the code changes substantially"
+    assert Iu.shape[-1] == 360, "360 directions assumed in the database. If not, the code must change substantially"
     dir_idxs = np.rint(np.rad2deg(Nw_beta_DB)).astype(int)
     dir_idxs[dir_idxs==360] = 0  # in case a direction is assumed to be 360, convert it to 0
     Iu = np.array([Iu[n,d] for n,d in enumerate(dir_idxs)])
-    Iv =  # see Design Basis
-    Iw =  # see Design Basis
-    return
+    Iv = 0.84 * Iu  # Design basis rev 2C, 2021, Chapter 3.6.1
+    Iw = 0.60 * Iu  # Design basis rev 2C, 2021, Chapter 3.6.1
+    return np.array([Iu, Iv, Iw]).T
 
 
-def Nw_S_a_func():
-    pass
+def Nw_S_a_func(g_node_coor, f_array, Nw_U_bar, Nw_Ii, Nw_beta_DB):
+    """
+    n and n_hat needs to be in Hertz, not radians!
+    """
+    Ai = Ai_func(cond_rand_A=False)
+    iLj = iLj_func(g_node_coor)
+    sigma_n = np.einsum('na,n->na', Nw_Ii, Nw_U_bar)  # standard deviation of the turbulence, for each node and each component.
+
+    # Autospectrum
+    n_hat = np.einsum('f,na,n->fna', f_array, iLj[:, :, 0], 1 / U_bar)
+    S_a = np.einsum('f,na,a,fna,fna->fna', 1/f_array, sigma_n ** 2, Ai, n_hat, 1 / (1 + 1.5 * np.einsum('a,fna->fna', Ai, n_hat)) ** (5 / 3))
+    return S_a
 
 
 def Nw_S_aa_func():
