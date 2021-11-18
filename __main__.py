@@ -332,7 +332,7 @@ if run_Nw_sw:
     Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R6g_all = D_loc_and_R6g_from_all_static_wind_cases(Nw_U_bar_all, Nw_beta_0_all, Nw_theta_0_all, case_slice_to_plot, g_node_coor, p_node_coor, alpha)
     Hw_g_node_coor_all, Hw_p_node_coor_all, Hw_D_glob_all, Hw_D_loc_all, Hw_R6g_all = D_loc_and_R6g_from_all_static_wind_cases(Hw_U_bar_all, Hw_beta_0_all, Hw_theta_0_all, case_slice_to_plot, g_node_coor, p_node_coor, alpha)
 
-    # Other post post-processing
+    # Other post-processing
     Nw_R6g_abs_all = np.abs(Nw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
     Hw_R6g_abs_all = np.abs(Hw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
     Nw_R6g_abs_max = np.max(Nw_R6g_abs_all, axis=0)

@@ -565,6 +565,19 @@ def T_GsGw_func(beta_0,theta_0, dim='3x3'):
     elif dim=='6x6':
         return M_3x3_to_M_6x6(M)
 
+def T_GsNw_func(beta_0,theta_0, dim='3x3'):
+    # Transformation matrix, from Nw (Non-homogeneous wind) to Gs (Global structural). The only difference to T_GsGw_func, is that this takes arrays as inputs, and outputs e.g. shape (node_num,3,3)
+    M = np.array([[-np.cos(theta_0) * np.sin(beta_0), -np.cos(beta_0),  np.sin(theta_0) * np.sin(beta_0)],
+                  [ np.cos(theta_0) * np.cos(beta_0), -np.sin(beta_0), -np.sin(theta_0) * np.cos(beta_0)],
+                  [                  np.sin(theta_0),        0*beta_0,                   np.cos(theta_0)]])
+    if len(M.shape) >= 3:
+        assert M.shape[0:2] == (3,3)
+        M = np.moveaxis(M,(0,1),(-2,-1))  # E.g. having (3,3,128,201), then the first and second axes (3,3) become the second-last and last axes -> (128,201,3,3)
+    if dim=='3x3':
+        return M
+    elif dim=='6x6':
+        return M_3x3_to_M_6x6(M)
+
 def T_LwGw_func(dim='3x3'):
     T = np.array([[0., -1., 0.],
                   [1.,  0., 0.],

@@ -57,6 +57,9 @@ if generate_new_WRF_at_bridge_nodes_file:
     #  The first timestamp of this database should be 1-Jan-2000
     bridgedataset.close()
 
+###############################
+# NOTE ABOUT TRASHHHH: The rest of the code below should be redundant as it is now incorporated in the nonhomogeneity.py file
+###############################
 # Reading the WRF dataset at the bridge nodes:
 bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'r', format='NETCDF4')
 lats_bridge = bridgedataset['latitudes'][:].data
