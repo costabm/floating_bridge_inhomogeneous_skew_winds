@@ -18,7 +18,7 @@ from transformations import mat_Ls_node_Gs_node_all_func, from_cos_sin_to_0_2pi,
 from modal_analysis import modal_analysis_func, simplified_modal_analysis_func
 from static_loads import static_wind_func
 from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R
-from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func
+from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func  # todo: go get this function in the trash folder "old_wrong_files"
 from nonhomogeneity import Nw_U_bar_func, Nw_beta_and_theta_bar_func, Nw_static_wind_func, interpolate_from_WRF_nodes_to_g_nodes, n_WRF_nodes, WRF_node_coor, U_bar_equivalent_to_Nw_U_bar
 from buffeting import buffeting_FD_func, rad, deg, list_of_cases_FD_func, parametric_buffeting_FD_func, U_bar_func, buffeting_TD_func, list_of_cases_TD_func, parametric_buffeting_TD_func, beta_0_func
 import copy

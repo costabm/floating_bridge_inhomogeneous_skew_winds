@@ -19,7 +19,7 @@ from buffeting import U_bar_func, beta_0_func, RP, Pb_func, Ai_func, iLj_func, C
 from mass_and_stiffness_matrix import stiff_matrix_func, stiff_matrix_12b_local_func, stiff_matrix_12c_local_func, linmass, SDL
 from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_node_coor_func, R, arc_length, zbridge, bridge_shape, g_s_3D_func
 from transformations import T_LsGs_3g_func, T_GsNw_func, from_cos_sin_to_0_2pi
-from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R
+from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R, lat_lon_aspect_ratio
 import matplotlib.pyplot as plt
 import matplotlib
 
@@ -420,9 +420,6 @@ class NwClass:
         self.iLj = iLj
         self.S_a = S_a
 
-
-
-
     def set_S_aa(self, cospec_type=2):
         """
         In Hertz. The input coordinates are in Global Structural Gs (even though Gw is calculated and used in this function)
@@ -436,6 +433,7 @@ class NwClass:
         Cij = Cij_func(cond_rand_C=False)
         n_g_nodes = len(g_node_coor)
 
+        # todo: Continue here Bernardo, solve this challenging problem by doing different experiments in Python
         # Difficult part. We need a cross-transformation matrix T_GsNw_avg, which is an array with shape (n_g_nodes, n_g_nodes, 3) where each (i,j) entry is the T_GsNw_avg, where Nw_avg is the avg. between Nw_i (at node i) and Nw_j (at node j)
         T_GsNw = T_GsNw_func(beta_0, theta_0)  # shape (n_g_nodes,3,3)
         T_GsNw_avg = (T_GsNw[:,None] + T_GsNw) / 2  # from shape (n_g_nodes,3,3), to shape (n_g_nodes,n_g_nodes, 3, 3)! Average between the axes of both points
@@ -520,11 +518,6 @@ class NwClass:
         # plt.plot(cross_spec_3)
         return S_aa
 
-
-
-
-
-
     def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
         """
         Nw_U_bar shape: (n_cases, n_nodes)
@@ -557,18 +550,174 @@ class NwClass:
         plt.figure(figsize=(4, 6), dpi=300)
         lats_bridge = self.aux_WRF['lats_bridge']
         lons_bridge = self.aux_WRF['lons_bridge']
+        plt.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
         plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot), color=ws_colors, angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
         cbar = plt.colorbar(sm)
         cbar.set_label('U [m/s]')
         plt.title(f'Nw U_bar')
-        plt.xlim(5.366, 5.386)
-        plt.ylim(60.082, 60.133)
+        plt.xlim(5.35, 5.41)
+        plt.ylim(60.080, 60.135)
         plt.xlabel('Longitude [$\degree$]')
         plt.ylabel('Latitude [$\degree$]')
-        plt.gca().set_aspect('equal', adjustable='box')
+        plt.gca().set_aspect(lat_lon_aspect_ratio, adjustable='box')
         plt.tight_layout()
         plt.show()
 
+    def plot_Ii_at_WRF_points(self):
+        from other.orography import get_all_geotiffs_merged
+        from windrose import WindroseAxes
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+        g_node_coor = self.g_node_coor  # shape (g_node_num,3)
+        n_g_nodes = len(g_node_coor)
+        lon_mosaic, lat_mosaic, imgs_mosaic = get_all_geotiffs_merged()
+        with open(r"intermediate_results\\Nw_Iu\\Iu_48m_ANN_preds.json") as f:
+            dict_Iu_48m_ANN_preds = json.loads(f.read())
+        with open(r"intermediate_results\\Nw_Iu\\Iu_48m_EN_preds.json") as f:
+            dict_Iu_48m_EN_preds = json.loads(f.read())
+
+        # bj_coors_WRONG_OLD_METHOD = np.array([[-34449.260, 6699999.046],
+        #                                       [-34244.818, 6700380.872],
+        #                                       [-34057.265, 6700792.767],
+        #                                       [-33888.469, 6701230.609],
+        #                                       [-33740.109, 6701690.024],
+        #                                       [-33613.662, 6702166.417],
+        #                                       [-33510.378, 6702655.026],
+        #                                       [-33431.282, 6703150.969],
+        #                                       [-33377.153, 6703649.290],
+        #                                       [-33348.522, 6704145.006],
+        #                                       [-33345.665, 6704633.167]])
+        bj_coors = np.array([[-34449.260, 6699999.046],
+                             [-34098.712, 6700359.394],
+                             [-33786.051, 6700752.909],
+                             [-33514.390, 6701175.648],
+                             [-33286.431, 6701623.380],
+                             [-33104.435, 6702091.622],
+                             [-32970.204, 6702575.689],
+                             [-32885.057, 6703070.741],
+                             [-32849.826, 6703571.830],
+                             [-32864.842, 6704073.945],
+                             [-32929.936, 6704572.075]])
+        bj_pt_strs = ['bj' + f'{i + 1:02}' for i in range(n_WRF_nodes)]
+
+        def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+            new_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+                'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+                cmap(np.linspace(minval, maxval, n)))
+            return new_cmap
+
+        # FIGURE 1, ZOOMED OUT
+        lon_lims = [-50000, -20000]
+        lat_lims = [6.685E6, 6.715E6]
+        lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
+        lat_lim_idxs = [np.where(lat_mosaic[:, 0] == lat_lims[0])[0][0], np.where(lat_mosaic[:, 0] == lat_lims[1])[0][0]]
+        lon_mosaic_crop = lon_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+        lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+        imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+        # cmap = copy.copy(plt.get_cmap('magma_r'))
+        cmap = copy.copy(plt.get_cmap('binary'))
+        imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
+        cmap.set_bad(color='skyblue')  # color where height == 0
+        plt.figure(dpi=400)
+        plt.title('ANN predictions of $I_u$ along Bjørnafjorden')
+        bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
+                 lat_mosaic_crop.min(), lat_mosaic_crop.max()))
+        imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
+        main_ax = plt.gca()
+        wrax = {}
+        for pt_idx, pt in enumerate(bj_pt_strs):
+            plt.scatter(bj_coors[pt_idx][0], bj_coors[pt_idx][1], marker='o', facecolors='black', edgecolors='black', s=10, label='Measurement location' if pt == 0 else None)
+        cb = plt.colorbar(imshow)
+        plt.xlabel('Easting [m]')
+        plt.ylabel('Northing [m]')
+        cb.set_label('Height [m]')
+        # plt.legend()  # [handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
+        plt.tight_layout(pad=0.05)
+
+        Iu_min_all_pts = np.min(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_max_all_pts = np.max(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        # for pt_idx, pt in enumerate(bj_pt_strs):
+        #     ########### WIND ROSES
+        #     wd = np.array(dict_Iu_48m_ANN_preds[pt]['sector'])
+        #     Iu = np.array(dict_Iu_48m_ANN_preds[pt]['Iu'])
+        #     Iu_min = np.min(Iu)
+        #     Iu_max = np.max(Iu)
+        #     wrax[pt] = inset_axes(main_ax,
+        #                           width=0.1,  # size in inches
+        #                           height=0.1,  # size in inches
+        #                           loc='center',  # center bbox at given position
+        #                           bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
+        #                           bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
+        #                           axes_class=WindroseAxes)  # specify the class of the axe
+        #     # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+        #     # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+        #     wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+        #                                                                           (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
+        #     wrax[pt].tick_params(labelleft=False, labelbottom=False)
+        #     wrax[pt].patch.set_alpha(0)
+        #     wrax[pt].axis('off')
+        plt.show()
+        plt.savefig('plots/11_ANN_preds_zoomout.png')
+
+        # FIGURE 2, ZOOMED IN
+        lon_lims = [-36000, -32000]
+        lat_lims = [6.6996E6, 6.705E6]
+        lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
+        lat_lim_idxs = [np.where(lat_mosaic[:, 0] == lat_lims[0])[0][0], np.where(lat_mosaic[:, 0] == lat_lims[1])[0][0]]
+        lon_mosaic_crop = lon_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+        lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+        imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+        # cmap = copy.copy(plt.get_cmap('magma_r'))
+        cmap = copy.copy(plt.get_cmap('binary'))
+        imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
+        cmap.set_bad(color='skyblue')  # color where height == 0
+        plt.figure(dpi=400)
+        # plt.title('ANN predictions of $I_u$ along Bjørnafjorden')
+        bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
+                 lat_mosaic_crop.min(), lat_mosaic_crop.max()))
+        imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
+        main_ax = plt.gca()
+        wrax = {}
+        # for pt_idx, pt in enumerate(bj_pt_strs):
+        #     plt.scatter(bj_coors[pt_idx][0], bj_coors[pt_idx][1], marker='o', facecolors='black', edgecolors='black', s=10, label='Measurement location' if pt==0 else None)
+
+        plt.xlabel('Easting [m]')
+        plt.ylabel('Northing [m]')
+
+        # plt.legend() #[handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
+        # plt.tight_layout(pad=0.05)
+
+        Iu_min_all_pts = np.min(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_max_all_pts = np.max(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        rose_radius = np.ones(11)*0.4
+        for pt_idx, pt in enumerate(bj_pt_strs):
+            if True: # pt_idx%10==0: # if point index is even:
+                ########### WIND ROSES
+                wd = np.array(dict_Iu_48m_ANN_preds[pt]['sector'])
+                Iu = np.array(dict_Iu_48m_ANN_preds[pt]['Iu'])
+                Iu_min = np.min(Iu)
+                Iu_max = np.max(Iu)
+                wrax[pt] = inset_axes(main_ax,
+                                  width=rose_radius[pt_idx],  # size in inches
+                                  height=rose_radius[pt_idx],  # size in inches
+                                  loc='center',  # center bbox at given position
+                                  bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
+                                  bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
+                                  axes_class=WindroseAxes)  # specify the class of the axe
+                # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+                # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+                wrax[pt].bar(wd, Iu, opening=1.0, nsector=360 , cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts),
+                                                                                                                  (Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)))
+                wrax[pt].tick_params(labelleft=False, labelbottom=False)
+                wrax[pt].patch.set_alpha(0)
+                wrax[pt].axis('off')
+
+        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts,vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
+        cb.set_label('$I_u$')
+        main_ax.axis('off')
+        plt.show()
+
+        plt.savefig('plots/11_ANN_preds_zoomin.png')
 
 
 #todo:delete
@@ -583,19 +732,16 @@ Nw = NwClass()
 Nw.set_WRF_df(sort_by='ws_max')
 Nw.set_structure(g_node_coor, p_node_coor, alpha)
 Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-2)
-Nw.plot_U(df_WRF_idx=-2)
+Nw.plot_U(df_WRF_idx=-1)
 Nw.set_beta_and_theta_bar()
 Nw.set_Ii()
 Nw.set_S_a(f_array)
+Nw.plot_Ii_at_WRF_points()
 Nw.set_S_aa()
 
 
-Nw.U_bar
-np.rad2deg(Nw.beta_DB)
-Nw.beta_0
-Nw.beta_bar
-Nw.Ii
-Nw.S_a.shape
+
+
 
 
 

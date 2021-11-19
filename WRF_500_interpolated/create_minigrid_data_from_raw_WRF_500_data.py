@@ -20,9 +20,11 @@ def deg(rad):
     return rad*180/np.pi
 
 create_minigrid = False  # if True, when running this file, the miniggrid is created
-
 earth_R = 6371*1000  # m. Globally averaged radius of the Earth. https://en.wikipedia.org/wiki/Earth_radius
-n_bridge_WRF_nodes = 11  # If you change this, you need to create a new database: WRF_at_bridge_nodes.nc
+lat_mid_Bj = np.deg2rad(60.1086)  # Latitude at the middle of the Bjørnafjord. Used to obtain the Earth circunference at that latitude
+earth_circunf_R_at_lat = earth_R * np.cos(lat_mid_Bj) # IMPORTANT: In Norway (lat ~ 60deg), going 1 deg west is about half the distance (cos(60)) than going 1 deg North! earth_circunf_R_at_lat concerns the circunference when the Earth is cut at lat=60deg
+lat_lon_aspect_ratio = 1/np.cos(lat_mid_Bj)  # correct aspect ratio for plots, since 1 deg lon corresponds to a different distance than 1 deg lat
+n_bridge_WRF_nodes = 11
 
 def bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes = n_bridge_WRF_nodes, bridge_R = 5000, bridge_L = 5000, bridge_chord_yaw = rad(10), bridge_south_coor = np.array([rad(60.0855), rad(5.3705)]), unit='deg'):
     """
@@ -37,14 +39,14 @@ def bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes = n_bridge_WRF_nodes, bridge_R
     bridge_arc_delta_angle = bridge_L / bridge_R  # rad. "Aperture" angle of the whole bridge arc.
     bridge_chord = np.sin(bridge_arc_delta_angle / 2) * bridge_R * 2  # m.
     bridge_north_coor = np.array([bridge_south_coor[0] + np.cos(bridge_chord_yaw)*bridge_chord/earth_R,  # latitude, longitude. print(deg(bridge_north_coor)).
-                                  bridge_south_coor[1] + np.sin(bridge_chord_yaw)*bridge_chord/earth_R])  # e.g.(yaw=7deg): https://www.google.pt/maps/@60.12861577  5.41361577,200m
+                                  bridge_south_coor[1] + np.sin(bridge_chord_yaw)*bridge_chord/earth_circunf_R_at_lat])  # e.g.(yaw=7deg): https://www.google.pt/maps/@60.12861577  5.41361577,200m
     bridge_WRF_nodes_angle = np.cumsum([0] + [bridge_arc_delta_angle / (n_bridge_WRF_nodes-1)]*(n_bridge_WRF_nodes-1))
     angle_horiz_to_R_centre = rad(90) - (rad(180) - rad(90) - bridge_arc_delta_angle/2 - bridge_chord_yaw)  # angle between a latidude line and the line crossing south point and bridge R center
     bridge_R_center_coor = np.array([bridge_south_coor[0] + np.sin(angle_horiz_to_R_centre)*bridge_R/earth_R,  # coordinates of the center of the imaginary bridge circle which encompasses the curved axis
-                                     bridge_south_coor[1] - np.cos(angle_horiz_to_R_centre)*bridge_R/earth_R])
+                                     bridge_south_coor[1] - np.cos(angle_horiz_to_R_centre)*bridge_R/earth_circunf_R_at_lat])
     bridge_WRF_nodes_coor = np.array([[bridge_R_center_coor[0] + np.sin(-angle_horiz_to_R_centre+i)*bridge_R/earth_R,  # coordinates of the center of the imaginary bridge circle which encompasses the curved axis
-                                       bridge_R_center_coor[1] + np.cos(-angle_horiz_to_R_centre+i)*bridge_R/earth_R] for i in bridge_WRF_nodes_angle])
-    assert (bridge_north_coor == bridge_WRF_nodes_coor[-1]).all(), "Last node does not have expected coordinates. There's an error somewhere. Check plot bellow"
+                                       bridge_R_center_coor[1] + np.cos(-angle_horiz_to_R_centre+i)*bridge_R/earth_circunf_R_at_lat] for i in bridge_WRF_nodes_angle])
+    assert np.allclose(bridge_north_coor, bridge_WRF_nodes_coor[-1]), "Last node does not have expected coordinates. There's an error somewhere. Check plot bellow"
     if unit == 'rad':
         return bridge_WRF_nodes_coor
     elif unit == 'deg':
@@ -66,9 +68,9 @@ def create_minigrid_data_func():
     min_bridge_lat, min_bridge_lon = np.min(bridge_WRF_nodes_coor, axis=0)
 
     # Getting the "mini-grid" data. The "mini-grid" is a subset of all the WRF 500m points, as a tight layout around the bridge.
-    window_margin = 1000  # m. The window where to find WRF data covers the max and min bridge lats and lons, plus this margin. Larger -> more points to interpolate (useful for non-linear interpolations)
+    window_margin = 500  # m. The window where to find WRF data covers the max and min bridge lats and lons, plus this margin. Larger -> more points to interpolate (useful for non-linear interpolations)
     lat_lon_window = np.array([[min_bridge_lat - window_margin/earth_R, max_bridge_lat + window_margin/earth_R],
-                               [min_bridge_lon - window_margin/earth_R, max_bridge_lon + window_margin/earth_R]])
+                               [min_bridge_lon - window_margin/earth_circunf_R_at_lat, max_bridge_lon + window_margin/earth_circunf_R_at_lat]])
     cond_1 = deg(lat_lon_window[0, 0]) < lats_lons['lats']
     cond_2 = deg(lat_lon_window[1, 0]) < lats_lons['lons']
     cond_3 = deg(lat_lon_window[0, 1]) > lats_lons['lats']
@@ -98,7 +100,7 @@ def create_minigrid_data_func():
     minidataset_ws[:] = ws
     minidataset_wd[:] = wd
     minidataset_time[:] = hours_since_datetime_min
-    minidataset['time'].description = "Num of hours since matlabs beginning of time, but there is a 2-day mismatch between python and matlab (1 due to date convention + 1 due to base index convention?). Hence, in Python run: datetime.datetime.min + datetime.timedelta(hours=17522904) - datetime.timedelta(days=2). The first timestamp of this database (17522904) should correspond to 1-Jan-2000"
+    minidataset['time'].description = """Number of hours since 01/01/0001 00:00:00 (use datetime.datetime.min + datetime.timedelta(hours=minidataset['time'])"""
     minidataset.close()
 
     # Plotting all nodes of the bridge and the mini-grid
@@ -108,8 +110,8 @@ def create_minigrid_data_func():
     plt.axhline(deg(min_bridge_lat), c='orange', alpha=0.5, linestyle='-.')
     plt.axvline(deg(max_bridge_lon), c='orange', alpha=0.5, linestyle='-.')
     plt.axvline(deg(min_bridge_lon), c='orange', alpha=0.5, linestyle='-.')
-    plt.axis('equal')
-    plt.legend()
+    plt.gca().set_aspect(lat_lon_aspect_ratio)  # Very important: going 1 deg to west is not the same distance in meters as going 1 deg north. The proportion is np.cos(lat_mid_Bj)
+    # plt.legend()
     plt.show()
 
 if create_minigrid:
