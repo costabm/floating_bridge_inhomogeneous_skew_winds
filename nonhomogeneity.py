@@ -562,16 +562,20 @@ class NwClass:
         lons_bridge = self.aux_WRF['lons_bridge']
         plt.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
         plt.gca().set_aspect(lat_lon_aspect_ratio, adjustable='box')
-        plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot), color=ws_colors, angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
+        plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot), color=ws_colors, angles='uv', scale=80, width=0.015, headlength=3, headaxislength=3)
         cbar = plt.colorbar(sm,fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
         cbar.set_label('U [m/s]')
-        plt.title(f'Nw U_bar')
+        plt.title(f'Inhomogeneous wind')
         plt.xlim(5.35, 5.41)
         plt.ylim(60.080, 60.135)
+        # plt.xlim(5.362, 5.395)
+        # plt.ylim(60.084, 60.13)
         plt.xlabel('Longitude [$\degree$]')
         plt.ylabel('Latitude [$\degree$]')
         plt.tight_layout()
+        plt.savefig('plots/U_case.png')
         plt.show()
+        plt.close()
 
     def plot_Ii_at_WRF_points(self):
         g_node_coor = self.g_node_coor  # shape (g_node_num,3)
@@ -613,7 +617,7 @@ class NwClass:
             return new_cmap
 
         # FIGURE 1, ZOOMED OUT
-        lon_lims = [-50000, -20000]
+        lon_lims = [-45000, -20000]
         lat_lims = [6.685E6, 6.715E6]
         lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
         lat_lim_idxs = [np.where(lat_mosaic[:, 0] == lat_lims[0])[0][0], np.where(lat_mosaic[:, 0] == lat_lims[1])[0][0]]
@@ -625,7 +629,7 @@ class NwClass:
         imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
         cmap.set_bad(color='skyblue')  # color where height == 0
         plt.figure(dpi=400)
-        plt.title('ANN predictions of $I_u$ along Bjørnafjorden')
+        plt.title('Topography')
         bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
                  lat_mosaic_crop.min(), lat_mosaic_crop.max()))
         imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
@@ -667,7 +671,7 @@ class NwClass:
         plt.close()
 
         # FIGURE 2, ZOOMED IN
-        lon_lims = [-36000, -32000]
+        lon_lims = [-35000, -32000]
         lat_lims = [6.6996E6, 6.705E6]
         lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
         lat_lim_idxs = [np.where(lat_mosaic[:, 0] == lat_lims[0])[0][0], np.where(lat_mosaic[:, 0] == lat_lims[1])[0][0]]
@@ -679,7 +683,7 @@ class NwClass:
         imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
         cmap.set_bad(color='skyblue')  # color where height == 0
         plt.figure(dpi=400)
-        # plt.title('ANN predictions of $I_u$ along Bjørnafjorden')
+        plt.title('ANN predictions of $I_u$')
         bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
                  lat_mosaic_crop.min(), lat_mosaic_crop.max()))
         imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
@@ -736,17 +740,14 @@ f_array = np.linspace(f_min, f_max, n_freq)
 
 Nw = NwClass()
 Nw.set_WRF_df(sort_by='wd_var')
-
-df_WRF = Nw.df_WRF
-
 Nw.set_structure(g_node_coor, p_node_coor, alpha)
-Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-13)
-Nw.plot_U(df_WRF_idx=-13)
-
+Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-2)
+Nw.plot_U(df_WRF_idx=-2)
 Nw.set_beta_and_theta_bar()
 Nw.set_Ii()
 Nw.set_S_a(f_array)
 Nw.plot_Ii_at_WRF_points()
+
 Nw.set_S_aa()
 
 
