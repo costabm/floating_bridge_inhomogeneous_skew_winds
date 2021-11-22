@@ -743,7 +743,6 @@ Nw.set_structure(g_node_coor, p_node_coor, alpha)
 Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-13)
 Nw.plot_U(df_WRF_idx=-13)
 
-
 Nw.set_beta_and_theta_bar()
 Nw.set_Ii()
 Nw.set_S_a(f_array)
