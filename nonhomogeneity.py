@@ -14,12 +14,16 @@ import netCDF4
 import warnings
 import numpy as np
 import pandas as pd
+from windrose import WindroseAxes
 from scipy import interpolate
 from buffeting import U_bar_func, beta_0_func, RP, Pb_func, Ai_func, iLj_func, Cij_func
 from mass_and_stiffness_matrix import stiff_matrix_func, stiff_matrix_12b_local_func, stiff_matrix_12c_local_func, linmass, SDL
 from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_node_coor_func, R, arc_length, zbridge, bridge_shape, g_s_3D_func
 from transformations import T_LsGs_3g_func, T_GsNw_func, from_cos_sin_to_0_2pi
 from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R, lat_lon_aspect_ratio
+from other.orography import get_all_geotiffs_merged
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
 import matplotlib
 
@@ -303,7 +307,7 @@ class NwClass:
                           'ws_var': np.array(np.argsort(np.var(ws, axis=1))),
                           'ws_max': np.array(np.argsort(np.max(ws, axis=1))),
                           'wd_var': np.array(np.argsort(pd.concat([wd_cos_var, wd_sin_var], axis=1).max(axis=1)))}
-        self.df_WRF = df_WRF.loc[idxs_sorted_by[sort_by]]
+        self.df_WRF = df_WRF.loc[idxs_sorted_by[sort_by]].reset_index(drop=True)
         self.props_WRF['df_WRF'] = {'U_tresh':U_tresh, 'tresh_requirement_type':tresh_requirement_type, 'sorted_by':sort_by}
 
     def set_structure(self, g_node_coor, p_node_coor, alpha):
@@ -539,6 +543,12 @@ class NwClass:
         self.equiv_Hw_U_bar = U_bar_equivalent
 
     def plot_U(self, df_WRF_idx):
+        # def colorbar(mappable):
+        #     ax = mappable.axes
+        #     fig = ax.figure
+        #     divider = make_axes_locatable(ax)
+        #     cax = divider.append_axes("right", size="5%", pad=0.05)
+        #     return fig.colorbar(mappable, cax=cax)
         ws_cols = self.aux_WRF['ws_cols']
         wd_cols = self.aux_WRF['wd_cols']
         ws_to_plot = self.df_WRF[ws_cols].iloc[df_WRF_idx].to_numpy()
@@ -551,23 +561,19 @@ class NwClass:
         lats_bridge = self.aux_WRF['lats_bridge']
         lons_bridge = self.aux_WRF['lons_bridge']
         plt.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
+        plt.gca().set_aspect(lat_lon_aspect_ratio, adjustable='box')
         plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot), color=ws_colors, angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
-        cbar = plt.colorbar(sm)
+        cbar = plt.colorbar(sm,fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
         cbar.set_label('U [m/s]')
         plt.title(f'Nw U_bar')
         plt.xlim(5.35, 5.41)
         plt.ylim(60.080, 60.135)
         plt.xlabel('Longitude [$\degree$]')
         plt.ylabel('Latitude [$\degree$]')
-        plt.gca().set_aspect(lat_lon_aspect_ratio, adjustable='box')
         plt.tight_layout()
         plt.show()
 
     def plot_Ii_at_WRF_points(self):
-        from other.orography import get_all_geotiffs_merged
-        from windrose import WindroseAxes
-        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-
         g_node_coor = self.g_node_coor  # shape (g_node_num,3)
         n_g_nodes = len(g_node_coor)
         lon_mosaic, lat_mosaic, imgs_mosaic = get_all_geotiffs_merged()
@@ -656,8 +662,9 @@ class NwClass:
         #     wrax[pt].tick_params(labelleft=False, labelbottom=False)
         #     wrax[pt].patch.set_alpha(0)
         #     wrax[pt].axis('off')
+        plt.savefig('plots/ANN_preds_zoomout.png')
         plt.show()
-        plt.savefig('plots/11_ANN_preds_zoomout.png')
+        plt.close()
 
         # FIGURE 2, ZOOMED IN
         lon_lims = [-36000, -32000]
@@ -715,10 +722,9 @@ class NwClass:
         cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts,vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
         cb.set_label('$I_u$')
         main_ax.axis('off')
+        plt.savefig('plots/ANN_preds_zoomin.png')
         plt.show()
-
-        plt.savefig('plots/11_ANN_preds_zoomin.png')
-
+        plt.close()
 
 #todo:delete
 alpha = np.zeros(g_node_coor.shape[0])
@@ -729,10 +735,15 @@ f_array = np.linspace(f_min, f_max, n_freq)
 #todo:delete
 
 Nw = NwClass()
-Nw.set_WRF_df(sort_by='ws_max')
+Nw.set_WRF_df(sort_by='wd_var')
+
+df_WRF = Nw.df_WRF
+
 Nw.set_structure(g_node_coor, p_node_coor, alpha)
-Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-2)
-Nw.plot_U(df_WRF_idx=-1)
+Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-13)
+Nw.plot_U(df_WRF_idx=-13)
+
+
 Nw.set_beta_and_theta_bar()
 Nw.set_Ii()
 Nw.set_S_a(f_array)

@@ -8,7 +8,20 @@ import netCDF4  # necessary to open the raw data. https://unidata.github.io/netc
 from create_minigrid_data_from_raw_WRF_500_data import bridge_WRF_nodes_coor_func, lat_mid_Bj
 
 
-generate_new_WRF_at_bridge_nodes_file = False
+def from_cos_sin_to_0_2pi(cosines, sines, out_units='rad'):
+    # # To test this angle transformations, do:
+    # test = np.deg2rad([-170, 170, 30, -30, -90, 370, -1, -180, 180])
+    # test = np.arctan2(np.sin(test), np.cos(test))
+    # test[test < 0] = abs(test[test < 0]) + 2 * (np.pi - abs(test[test < 0]))
+    # print(np.rad2deg(test))
+    atan2 = np.arctan2(sines, cosines)  # angles in interval -pi to pi
+    atan2[atan2 < 0] = abs(atan2[atan2 < 0]) + 2 * ( np.pi - abs(atan2[atan2 < 0]) )
+    if out_units == 'deg':
+        atan2 = np.rad2deg(atan2)
+    return atan2
+
+
+generate_new_WRF_at_bridge_nodes_file = True
 
 if generate_new_WRF_at_bridge_nodes_file:
     # Getting the already pre-processed data (mini-grid of the relevant WRF 500m datapoints that are near the bridge)
@@ -28,7 +41,9 @@ if generate_new_WRF_at_bridge_nodes_file:
     # Interpolating wind speeds and directions onto the bridge nodes
     print('Interpolation might take 5-10 min to run...')
     ws_interp = np.array([griddata(points=(lats_grid,lons_grid), values=ws_grid[:,t], xi=(lats_bridge, lons_bridge), method='linear') for t in range(n_time_points)]).transpose()
-    wd_interp = np.array([griddata(points=(lats_grid,lons_grid), values=wd_grid[:,t], xi=(lats_bridge, lons_bridge), method='linear') for t in range(n_time_points)]).transpose()
+    wd_cos_interp = np.array([griddata(points=(lats_grid,lons_grid), values=np.cos(np.deg2rad(wd_grid[:,t])), xi=(lats_bridge, lons_bridge), method='linear') for t in range(n_time_points)]).transpose()
+    wd_sin_interp = np.array([griddata(points=(lats_grid,lons_grid), values=np.sin(np.deg2rad(wd_grid[:,t])), xi=(lats_bridge, lons_bridge), method='linear') for t in range(n_time_points)]).transpose()
+    wd_interp = from_cos_sin_to_0_2pi(wd_cos_interp, wd_sin_interp, out_units='deg')
 
     # Saving the newly obtained WRF dataset at the bridge nodes
     bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'w', format='NETCDF4')
@@ -79,7 +94,7 @@ idxs_sorted_by = {'ws_var': np.array(np.argsort(np.var(ws, axis=1))),
 
 # Plotting datasamples with high variance of wd
 sort_by = 'wd_var'  # 'wd_var' for variance of the wind direction, or 'ws_var' for variance of the wind speeds
-rank = -3 # choose 0 for lowest, choose -1 for highest. Index of the sorted (by variance) list of indexes
+rank = -1 # choose 0 for lowest, choose -1 for highest. Index of the sorted (by variance) list of indexes
 idx_to_plot = idxs_sorted_by[sort_by][rank]
 ws_to_plot = df_WRF[ws_cols].iloc[idx_to_plot].to_numpy()
 cm = matplotlib.cm.cividis
