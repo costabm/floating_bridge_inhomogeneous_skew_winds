@@ -20,7 +20,6 @@ def from_cos_sin_to_0_2pi(cosines, sines, out_units='rad'):
         atan2 = np.rad2deg(atan2)
     return atan2
 
-
 generate_new_WRF_at_bridge_nodes_file = True
 
 if generate_new_WRF_at_bridge_nodes_file:
