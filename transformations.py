@@ -237,6 +237,68 @@ def T_xyzXYZ(x, y, z, X, Y, Z, dim='3x3'):
     else:
         raise ValueError("dim needs to be '3x3', '6x6' or '12x12'")
 
+def T_xyzXYZ_ndarray(x, y, z, X, Y, Z, dim='3x3'):
+    """
+    Generic transformation matrix, using the vectors of each axis of both reference systems as an input.
+    Returns the transformation matrix T_xyzXYZ so that V_xyz = T_xyzXYZ @ V_XYZ, in formats 3x3, 6x6 or 12x12.
+    V_XYZ and V_xyz are the same vector, expressed in the coordinate system XYZ and xyz, respectively.
+    Note:
+     A transformation matrix is the inverse (or the transpose) of a rotation matrix. To rotate a vector
+     clockwise is the same as rotating the axes counter-clockwise.
+    :param x: vector of the axis x, in any consistent reference frame.
+    :param y: vector of the axis y, in any consistent reference frame.
+    :param z: vector of the axis z, in any consistent reference frame.
+    :param X: vector of the axis X, in any consistent reference frame.
+    :param Y: vector of the axis Y, in any consistent reference frame.
+    :param Z: vector of the axis Z, in any consistent reference frame.
+    :param dim: dimension of the matrix: '3x3', '6x6', '12x12'
+    :return:
+    """
+
+    def vec_cos(v1, v2):
+        return np.einsum('...i,...i->...', v1, v2) / ( np.linalg.norm(v1, axis=-1) * np.linalg.norm(v2, axis=-1))
+
+    cosxX = vec_cos(x, X)
+    cosxY = vec_cos(x, Y)
+    cosxZ = vec_cos(x, Z)
+    cosyX = vec_cos(y, X)
+    cosyY = vec_cos(y, Y)
+    cosyZ = vec_cos(y, Z)
+    coszX = vec_cos(z, X)
+    coszY = vec_cos(z, Y)
+    coszZ = vec_cos(z, Z)
+
+    if dim == '3x3':
+        return np.array([[cosxX, cosxY, cosxZ],
+                         [cosyX, cosyY, cosyZ],
+                         [coszX, coszY, coszZ]])
+
+    if dim == '6x6':
+        return np.array([[cosxX, cosxY, cosxZ, 0, 0, 0],
+                         [cosyX, cosyY, cosyZ, 0, 0, 0],
+                         [coszX, coszY, coszZ, 0, 0, 0],
+                         [0, 0, 0, cosxX, cosxY, cosxZ],
+                         [0, 0, 0, cosyX, cosyY, cosyZ],
+                         [0, 0, 0, coszX, coszY, coszZ]])
+
+    if dim == '12x12':
+        return np.array([[cosxX, cosxY, cosxZ, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [cosyX, cosyY, cosyZ, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [coszX, coszY, coszZ, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, cosxX, cosxY, cosxZ, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, cosyX, cosyY, cosyZ, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, coszX, coszY, coszZ, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, cosxX, cosxY, cosxZ, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, cosyX, cosyY, cosyZ, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, coszX, coszY, coszZ, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, cosxX, cosxY, cosxZ],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, cosyX, cosyY, cosyZ],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, coszX, coszY, coszZ]])
+
+    else:
+        raise ValueError("dim needs to be '3x3', '6x6' or '12x12'")
+
+
 def T_LnwLs_func(beta, theta_yz, dim='3x3'):
     """from Local structural to Local-normal-wind coordinates, whose axes are defined as:
         x-axis: along-normal-wind (i.e. a "cos-rule-drag"), aligned with the (U+u)*cos(beta) that lies in a 2D plane normal to the bridge girder.

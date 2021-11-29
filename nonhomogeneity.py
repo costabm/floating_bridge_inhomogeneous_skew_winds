@@ -19,7 +19,7 @@ from scipy import interpolate
 from buffeting import U_bar_func, beta_0_func, RP, Pb_func, Ai_func, iLj_func, Cij_func
 from mass_and_stiffness_matrix import stiff_matrix_func, stiff_matrix_12b_local_func, stiff_matrix_12c_local_func, linmass, SDL
 from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_node_coor_func, R, arc_length, zbridge, bridge_shape, g_s_3D_func
-from transformations import T_LsGs_3g_func, T_GsNw_func, from_cos_sin_to_0_2pi
+from transformations import T_LsGs_3g_func, T_GsNw_func, from_cos_sin_to_0_2pi, T_xyzXYZ, T_xyzXYZ_ndarray
 from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R, lat_lon_aspect_ratio
 from other.orography import get_all_geotiffs_merged
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -430,81 +430,67 @@ class NwClass:
         """
         g_node_coor = self.g_node_coor  # shape (g_node_num,3)
         U_bar = self.U_bar
-        iLj = self.iLj
         S_a = self.S_a
         beta_0 = self.beta_0
         theta_0 = self.theta_0
         Cij = Cij_func(cond_rand_C=False)
         n_g_nodes = len(g_node_coor)
 
-        # todo: Continue here Bernardo, solve this challenging problem by doing different experiments in Python
         # Difficult part. We need a cross-transformation matrix T_GsNw_avg, which is an array with shape (n_g_nodes, n_g_nodes, 3) where each (i,j) entry is the T_GsNw_avg, where Nw_avg is the avg. between Nw_i (at node i) and Nw_j (at node j)
         T_GsNw = T_GsNw_func(beta_0, theta_0)  # shape (n_g_nodes,3,3)
-        T_GsNw_avg = (T_GsNw[:,None] + T_GsNw) / 2  # from shape (n_g_nodes,3,3), to shape (n_g_nodes,n_g_nodes, 3, 3)! Average between the axes of both points
+        Nw_Xu_Gs = np.einsum('nij,j->ni', T_GsNw, np.array([1, 0, 0]))  # Get all Nw Xu vectors. We will later average these.
+        Nw_Xu_Gs_avg_nonnorm = (Nw_Xu_Gs[:, None] + Nw_Xu_Gs) / 2  # shape (n_g_nodes, n_g_nodes, 3), so each entry m,n is an average of the Xu vector at node m and the Xu vector at node n
+        Nw_Xu_Gs_avg = Nw_Xu_Gs_avg_nonnorm / np.linalg.norm(Nw_Xu_Gs_avg_nonnorm, axis=2)[:, :, None]  # Normalized. shape (n_g_nodes, n_g_nodes, 3)
+        Z_Gs = np.array([0, 0, 1])
+        Nw_Yv_Gs_avg = np.cross(Z_Gs[None, None, :], Nw_Xu_Gs_avg)
+        Nw_Zw_Gs_avg = np.cross(Nw_Xu_Gs_avg, Nw_Yv_Gs_avg)
+        X_Gs = np.repeat(np.repeat(np.array([1, 0, 0])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
+        Y_Gs = np.repeat(np.repeat(np.array([0, 1, 0])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
+        Z_Gs = np.repeat(np.repeat(np.array([0, 0, 1])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
+        # T_GsNw_avg_WRONG = (T_GsNw[:, None] + T_GsNw) / 2
+        # T_GsNw_avg_RIGHT_SLOW_VERSION = np.array([[T_xyzXYZ(np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1]), Nw_Xu_Gs_avg[m,n], Nw_Yv_Gs_avg[m,n], Nw_Zw_Gs_avg[m,n]) for m in range(n_g_nodes)] for n in range(n_g_nodes)])
+        T_GsNw_avg = np.moveaxis(T_xyzXYZ_ndarray(x=X_Gs, y=Y_Gs, z=Z_Gs, X=Nw_Xu_Gs_avg, Y=Nw_Yv_Gs_avg, Z=Nw_Zw_Gs_avg), [0, 1], [-2, -1])
+        # # Benchmark: confirmation of T_GsNw_avg by an easy-step-by-step method
+        # X_Gs  = np.array([1, 0, 0])
+        # Y_Gs  = np.array([0, 1, 0])
+        # Z_Gs  = np.array([0, 0, 1])
+        # Xu_Nw = np.array([1, 0, 0])
+        # Yv_Nw = np.array([0, 1, 0])
+        # Zw_Nw = np.array([0, 0, 1])
+        # Nw_Xu_in_Gs = np.array([T_GsNw[i] @ Xu_Nw for i in range(n_g_nodes)])
+        # Nw_Yv_in_Gs = np.array([T_GsNw[i] @ Yv_Nw for i in range(n_g_nodes)])
+        # Nw_Zw_in_Gs = np.array([T_GsNw[i] @ Zw_Nw for i in range(n_g_nodes)])
+        # Nw_Xu_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
+        # Nw_Yv_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
+        # Nw_Zw_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
+        # def cos(i,j):
+        #     return np.dot(i, j) / (np.linalg.norm(i) * np.linalg.norm(j))
+        # T_GsNw_avg_2 = np.zeros((n_g_nodes, n_g_nodes, 3, 3))
+        # for i in range(n_g_nodes):
+        #     for j in range(n_g_nodes):
+        #         Nw_Xu_in_Gs_avg[i,j] = (Nw_Xu_in_Gs[i] + Nw_Xu_in_Gs[j]) / 2  # attention: this produces non-normalized vectors
+        #         Nw_Yv_in_Gs_avg[i,j] = (Nw_Yv_in_Gs[i] + Nw_Yv_in_Gs[j]) / 2  # attention: this produces non-normalized vectors
+        #         Nw_Zw_in_Gs_avg[i,j] = (Nw_Zw_in_Gs[i] + Nw_Zw_in_Gs[j]) / 2  # attention: this produces non-normalized vectors
+        #         T_GsNw_avg_2[i,j] = np.array([[cos(X_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(X_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(X_Gs, Nw_Zw_in_Gs_avg[i,j])],
+        #                                       [cos(Y_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(Y_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(Y_Gs, Nw_Zw_in_Gs_avg[i,j])],
+        #                                       [cos(Z_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(Z_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(Z_Gs, Nw_Zw_in_Gs_avg[i,j])]])
+        # np.allclose(T_GsNw_avg, T_GsNw_avg_2)
+        # Calculating the distances between pairs of points, in the average Nw_avg systems, which are the average between the Nw of one point and the Nw of the other point
+        delta_xyz_Gs = g_node_coor[:,None] - g_node_coor  # Note that delta_xyz is a linear operation that could be itself transformed
+        delta_xyz_Nw = np.absolute(np.einsum('mni,mnij->mnj', delta_xyz_Gs, T_GsNw_avg))
+        # # SLOW confirmation version:
+        # delta_xyz_Nw_SLOW = np.zeros((n_g_nodes, n_g_nodes, 3))
+        # for m in range(n_g_nodes):
+        #     for n in range(n_g_nodes):
+        #         delta_xyz_Nw_SLOW[m,n] = np.absolute(g_node_coor[m] @ T_GsNw_avg[m,n] - g_node_coor[n] @ T_GsNw_avg[m,n])
+
         U_bar_avg = (U_bar[:, None] + U_bar) / 2  # from shape (n_g_nodes) to shape (n_g_nodes,n_g_nodes)
-        g_node_coor_expanded = np.repeat(g_node_coor[:,None,:], n_g_nodes, axis=1)  # (g_node_num,g_node_num,3)
-        g_node_coor_Nw = np.einsum('mni,mnij->mnj', g_node_coor_expanded, T_GsNw_avg)
-        delta_xyz = np.absolute(g_node_coor_Nw - g_node_coor_Nw)  # shape (n_g_nodes, n_g_nodes,3)
 
-        # BENCHMARK 1: SLOW version -- INCOMPLETE --, but more intuitive, to validate the results:
-        from transformations import T_GsGw_func
-        T_GsNw_2 = np.array([T_GsGw_func(beta_0[i], theta_0[i]) for i in range(n_g_nodes)])
-        T_GsNw_avg_2 = np.zeros((n_g_nodes, n_g_nodes,3,3))
-        for i in range(n_g_nodes):
-            for j in range(n_g_nodes):
-                T_GsNw_avg_2[i,j,:,:] = ( T_GsGw_func(beta_0[i], theta_0[i]) + T_GsGw_func(beta_0[j], theta_0[j]) ) / 2
-        g_node_coor_Nw_simple = np.einsum('ni,nij->nj', g_node_coor, T_GsNw_2)
-
-        # BENCHMARK 2: ANOTHER METHOD
-        X_Gs  = np.array([1, 0, 0])
-        Y_Gs  = np.array([0, 1, 0])
-        Z_Gs  = np.array([0, 0, 1])
-        Xu_Nw = np.array([1, 0, 0])
-        Yv_Nw = np.array([0, 1, 0])
-        Zw_Nw = np.array([0, 0, 1])
-        Nw_Xu_in_Gs = np.array([T_GsNw_2[i] @ Xu_Nw for i in range(n_g_nodes)])
-        Nw_Yv_in_Gs = np.array([T_GsNw_2[i] @ Yv_Nw for i in range(n_g_nodes)])
-        Nw_Zw_in_Gs = np.array([T_GsNw_2[i] @ Zw_Nw for i in range(n_g_nodes)])
-        Nw_Xu_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
-        Nw_Yv_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
-        Nw_Zw_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
-        def cos(i,j):
-            return np.dot(i, j) / (np.linalg.norm(i) * np.linalg.norm(j))
-
-        T_GsNw_avg_2 = np.zeros((n_g_nodes, n_g_nodes, 3, 3))
-        for i in range(n_g_nodes):
-            for j in range(n_g_nodes):
-                Nw_Xu_in_Gs_avg[i,j] = (Nw_Xu_in_Gs[i] + Nw_Xu_in_Gs[j]) / 2
-                Nw_Yv_in_Gs_avg[i,j] = (Nw_Yv_in_Gs[i] + Nw_Yv_in_Gs[j]) / 2
-                Nw_Zw_in_Gs_avg[i,j] = (Nw_Zw_in_Gs[i] + Nw_Zw_in_Gs[j]) / 2
-                T_GsNw_avg_2[i,j] = np.array([[cos(X_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(X_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(X_Gs, Nw_Zw_in_Gs_avg[i,j])],
-                                              [cos(Y_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(Y_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(Y_Gs, Nw_Zw_in_Gs_avg[i,j])],
-                                              [cos(Z_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(Z_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(Z_Gs, Nw_Zw_in_Gs_avg[i,j])]])
-
-        # BENCHMARK 3: YET ANOTHER METHOD: CALCULATE delta_xyz as if the Nw vector was that of the left node, then as that of right node, and finally average both delta_xyz
-        np.all(np.isclose(T_GsNw_2,T_GsNw))
-        np.all(np.isclose(T_GsNw_avg,T_GsNw_avg_2))  # use  rtol=0.08 to get True...
-        print(np.max(np.abs(T_GsNw_avg-T_GsNw_avg_2)))
-        np.all(np.isclose(g_node_coor_Nw, g_node_coor_Nw_2))
-
-
-        # COMPARING WITH OLD HOMOGENEOUS FORMULATION
-        from transformations import T_GsGw_func
-        OLD_T_GsNw = T_GsGw_func(beta_0[0], theta_0[0])
-        OLDg_node_coor_Gw = np.einsum('ni,ij->nj', g_node_coor, OLD_T_GsNw)  # Nodes in wind coordinates. X along, Y across, Z vertical
-        OLD_delta_xyz = np.absolute(OLDg_node_coor_Gw[:, None] - OLDg_node_coor_Gw[:])  # shape (n_g_nodes, n_g_nodes,3)
-
-
-
-        # Cross-spectral density of fluctuating wind components. Adapted Davenport formulation. Note that coherence drops down do negative values, where it stays for quite some distance:
-
-
-        # Alternative 1: LD Zhu coherence and cross-spectrum. Developed in radians? So it is converted to Hertz in the end.
-        if cospec_type == 1:
+        if cospec_type == 1:  # Alternative 1: LD Zhu coherence and cross-spectrum. Developed in radians? So it is converted to Hertz in the end.
             raise NotImplementedError
-        if cospec_type == 2:
+        if cospec_type == 2:  # Coherence and cross-spectrum (adapted Davenport for 3D). Developed in Hertz!
             f_hat_aa = np.einsum('f,mna->fmna', f_array,
-                                 np.divide(np.sqrt((Cij[:, 0] * delta_xyz[:, :, 0, None]) ** 2 + (Cij[:, 1] * delta_xyz[:, :, 1, None]) ** 2 + (Cij[:, 2] * delta_xyz[:, :, 2, None]) ** 2),
+                                 np.divide(np.sqrt((Cij[:, 0] * delta_xyz_Nw[:, :, 0, None]) ** 2 + (Cij[:, 1] * delta_xyz_Nw[:, :, 1, None]) ** 2 + (Cij[:, 2] * delta_xyz_Nw[:, :, 2, None]) ** 2),
                                            U_bar_avg[:, :, None]))  # This is actually in omega units, not f_array, according to eq.(10.35b)! So: rad/s
             f_hat = f_hat_aa  # this was confirmed to be correct with a separate 4 loop "f_hat_aa_confirm" and one Cij at the time
             R_aa = np.e ** (-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)
@@ -520,7 +506,7 @@ class NwClass:
         # plt.plot(cross_spec_1)
         # plt.plot(cross_spec_2)
         # plt.plot(cross_spec_3)
-        return S_aa
+        self.S_aa = S_aa
 
     def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
         """
@@ -742,11 +728,11 @@ Nw = NwClass()
 Nw.set_WRF_df(sort_by='wd_var')
 Nw.set_structure(g_node_coor, p_node_coor, alpha)
 Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-2)
-Nw.plot_U(df_WRF_idx=-2)
+# Nw.plot_U(df_WRF_idx=-2)
 Nw.set_beta_and_theta_bar()
 Nw.set_Ii()
 Nw.set_S_a(f_array)
-Nw.plot_Ii_at_WRF_points()
+# Nw.plot_Ii_at_WRF_points()
 
 Nw.set_S_aa()
 
