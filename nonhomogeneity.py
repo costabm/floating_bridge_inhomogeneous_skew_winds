@@ -3,7 +3,7 @@ created: 2021
 author: Bernardo Costa
 email: bernamdc@gmail.com
 
-"Nw" is short for "Nonhomogeneous wind" and is extensively used in this script
+"Nw" is short for "Nonhomogeneous wind"
 """
 
 import os
@@ -30,7 +30,6 @@ import matplotlib
 
 n_WRF_nodes = n_bridge_WRF_nodes
 WRF_node_coor = g_node_coor_func(R=R, arc_length=arc_length, pontoons_s=[], zbridge=zbridge, FEM_max_length=arc_length/(n_WRF_nodes-1), bridge_shape=bridge_shape)  # needs to be calculated
-
 
 def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_coor, plot=False):
     """
@@ -65,19 +64,7 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 #     WRF_node_coor_2 = (WRF_node_coor_2 - WRF_node_coor_2[0]) @ np.array([[np.cos(np.deg2rad(-10)), -np.sin(np.deg2rad(-10))], [np.sin(np.deg2rad(-10)), np.cos(np.deg2rad(-10))]])
 #     assert np.allclose(WRF_node_coor[:, :2], WRF_node_coor_2)
 
-# # todo: delete below
-# from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func
-# Nw_ws_wd_func()
-# Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_to_plot, dtype=float))
-# Nw_beta_DB_sin = interpolate_from_WRF_nodes_to_g_nodes(np.sin(wd_to_plot, dtype=float))
-# Nw_beta_DB = from_cos_sin_to_0_2pi(Nw_beta_DB_cos, Nw_beta_DB_sin, out_units='rad')
-# Nw_beta_0 = np.array([beta_0_func(i) for i in Nw_beta_DB])
-# print(np.rad2deg(Nw_beta_0))
-# Nw_theta_0 = (copy.deepcopy(Nw_beta_0) * 0 + 1) * np.deg2rad(0)
-# alpha = (copy.deepcopy(Nw_beta_0) * 0 + 1) *  np.deg2rad(0)
-# # # todo: delete above
-
-
+# todo: see if we can replace the following 3 functions with the NwClass:
 def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same=None):
     """
     Returns a vector of Nonhomogeneous mean wind at each of the g_nodes
@@ -97,7 +84,6 @@ def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_h
     return Nw_U_bar
 # Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes=ws_to_plot, force_Nw_U_bar_and_U_bar_to_have_same=None)
 
-
 def U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
     """
     Nw_U_bar shape: (n_cases, n_nodes)
@@ -113,7 +99,6 @@ def U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar, force_Nw_U_bar_and_U_bar
         U_bar_equivalent = np.ones(Nw_U_bar.shape) * np.sqrt(np.mean(Nw_U_bar**2, axis=1)[:,None])
         assert all(np.isclose(np.mean(Nw_U_bar ** 2, axis=1)[:,None], np.mean(U_bar_equivalent ** 2, axis=1)[:,None]))  # same energy = same mean(U**2))
     return U_bar_equivalent
-
 
 def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
     """Returns the Nonhomogeneous beta_bar and theta_bar at each node, relative to the mean of the axes of the adjacent elements.
@@ -133,7 +118,7 @@ def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
     Nw_theta_bar = np.array([np.arcsin(Uz[i] / 1) for i in range(len(g_node_coor))])
     return Nw_beta_bar, Nw_theta_bar
 
-
+# todo: what is the difference between this function and the one in the static_loads.py
 def Nw_static_wind_func(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_0, Nw_theta_0, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D'):
     """
     :return: New girder and gontoon node coordinates, as well as the displacements that led to them.
@@ -229,7 +214,6 @@ def Nw_Iu_all_dirs_database(g_node_coor, model='ANN', use_existing_file=True):
         return Iu_14m_EN_preds
 
 
-
 class NwClass:
     """
     Non-homogeneous wind class
@@ -247,6 +231,7 @@ class NwClass:
             self.props_WRF = {}  # Properties of the WRF data
         if reset_wind:
             # Non-homogeneous wind
+            self.df_WRF_idx = None  # Index used from the df_WRF to generate the Nw wind
             self.U_bar = None  # Array of non-homogeneous mean wind speeds at all the girder nodes.
             self.beta_DB = None
             self.beta_0 = None
@@ -317,9 +302,7 @@ class NwClass:
         # Reseting wind
         self.__init__(reset_structure=False, reset_WRF_database=False, reset_wind=True)
 
-    # todo: wrapper function def set_wind(...arguments_from_all_functions...)
-
-    def set_U_bar_beta_DB_beta_0_theta_0(self, df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=None):
+    def _set_U_bar_beta_DB_beta_0_theta_0(self, df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=None):
         """
         Returns a vector of Nonhomogeneous mean wind at each of the g_nodes
         force_Nw_and_U_bar_to_have_same_avg : None, 'mean', 'energy'. force the Nw_U_bar_at_WRF_nodes to have the same e.g. mean 1, and thus when multiplied with U_bar, the result will have the same mean (of all nodes) wind
@@ -327,6 +310,7 @@ class NwClass:
         # Setting Nw U_bar:
         assert self.df_WRF is not None
         assert self.g_node_coor is not None
+
         g_node_coor = self.g_node_coor
         ws_cols = self.aux_WRF['ws_cols']
         wd_cols = self.aux_WRF['wd_cols']
@@ -344,7 +328,6 @@ class NwClass:
             elif force_Nw_U_and_N400_U_to_have_same == 'energy':
                 Nw_U_bar = U_bar_10min * np.sqrt(interp_fun / np.mean(interp_fun))
                 assert np.isclose(np.mean(Nw_U_bar ** 2), np.mean(U_bar_10min ** 2))  # same energy = same mean(U**2)
-        self.U_bar = Nw_U_bar
         # Setting Nw beta_DB, beta_0 and theta_0:
         wd_at_WRF_nodes = np.deg2rad(self.df_WRF[wd_cols].iloc[df_WRF_idx].to_numpy())
         Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_at_WRF_nodes, dtype=float), g_node_coor, WRF_node_coor)
@@ -355,8 +338,10 @@ class NwClass:
         self.beta_DB = Nw_beta_DB
         self.beta_0 = Nw_beta_0
         self.theta_0 = Nw_theta_0
+        self.U_bar = Nw_U_bar
+        self.df_WRF_idx = df_WRF_idx
 
-    def set_beta_and_theta_bar(self):
+    def _set_beta_and_theta_bar(self):
         """Returns the Nonhomogeneous beta_bar and theta_bar at each node, relative to the mean of the axes of the adjacent elements.
         Note: the mean of -179 deg and 178 deg should be 179.5 deg and not -0.5 deg. See: https://en.wikipedia.org/wiki/Mean_of_circular_quantities"""
         assert self.beta_DB is not None
@@ -381,7 +366,7 @@ class NwClass:
         self.beta_bar = Nw_beta_bar
         self.theta_bar = Nw_theta_bar
 
-    def set_Ii(self, model='ANN'):
+    def _set_Ii(self, model='ANN'):
         """
         For computer efficiency, nearest neighbour is used (instead of linear inerpolation), assuming 360 directions in the database
         Nw_beta_DB: len == n_g_nodes
@@ -406,7 +391,7 @@ class NwClass:
         Iw = 0.60 * Iu  # Design basis rev 2C, 2021, Chapter 3.6.1
         self.Ii = np.array([Iu, Iv, Iw]).T
 
-    def set_S_a(self, f_array):
+    def _set_S_a(self, f_array):
         """
         f_array and n_hat need to be in Hertz, not radians!
         """
@@ -424,7 +409,7 @@ class NwClass:
         self.iLj = iLj
         self.S_a = S_a
 
-    def set_S_aa(self, cospec_type=2):
+    def _set_S_aa(self, cospec_type=2):
         """
         In Hertz. The input coordinates are in Global Structural Gs (even though Gw is calculated and used in this function)
         """
@@ -507,6 +492,13 @@ class NwClass:
         # plt.plot(cross_spec_2)
         # plt.plot(cross_spec_3)
         self.S_aa = S_aa
+
+    def set_Nw_wind(self, df_WRF_idx, f_array, force_Nw_U_and_N400_U_to_have_same=None, model='ANN', cospec_type=2):
+        self._set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=force_Nw_U_and_N400_U_to_have_same)
+        self._set_beta_and_theta_bar()
+        self._set_Ii(model=model)
+        self._set_S_a(f_array=f_array)
+        self._set_S_aa(cospec_type=cospec_type)
 
     def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
         """
@@ -727,15 +719,19 @@ f_array = np.linspace(f_min, f_max, n_freq)
 Nw = NwClass()
 Nw.set_WRF_df(sort_by='wd_var')
 Nw.set_structure(g_node_coor, p_node_coor, alpha)
-Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-2)
-# Nw.plot_U(df_WRF_idx=-2)
-Nw.set_beta_and_theta_bar()
-Nw.set_Ii()
-Nw.set_S_a(f_array)
+Nw.set_Nw_wind(df_WRF_idx=-20, f_array=f_array)
+Nw.plot_U(df_WRF_idx=Nw.df_WRF_idx)
+
+#
+# Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-1)
+# Nw.plot_U(df_WRF_idx=-1)
+# Nw.set_beta_and_theta_bar()
+# Nw.set_Ii()
+# Nw.set_S_a(f_array)
 # Nw.plot_Ii_at_WRF_points()
+# Nw.set_S_aa()
 
-Nw.set_S_aa()
-
+Nw.plot_Ii_at_WRF_points()
 
 
 
