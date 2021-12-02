@@ -18,8 +18,8 @@ from transformations import mat_Ls_node_Gs_node_all_func, from_cos_sin_to_0_2pi,
 from modal_analysis import modal_analysis_func, simplified_modal_analysis_func
 from static_loads import static_wind_func
 from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R
-from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func  # todo: go get this function in the trash folder "old_wrong_files"
-from nonhomogeneity import Nw_U_bar_func, Nw_beta_and_theta_bar_func, Nw_static_wind_func, interpolate_from_WRF_nodes_to_g_nodes, n_WRF_nodes, WRF_node_coor, U_bar_equivalent_to_Nw_U_bar
+# from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func  # todo: go get this function in the trash folder "old_wrong_files"
+from nonhomogeneity import Nw_static_wind_func, NwClass  # Nw_U_bar_func, Nw_beta_and_theta_bar_func, interpolate_from_WRF_nodes_to_g_nodes, n_WRF_nodes, WRF_node_coor, U_bar_equivalent_to_Nw_U_bar
 from buffeting import buffeting_FD_func, rad, deg, list_of_cases_FD_func, parametric_buffeting_FD_func, U_bar_func, buffeting_TD_func, list_of_cases_TD_func, parametric_buffeting_TD_func, beta_0_func
 import copy
 from static_loads import static_dead_loads_func, R_loc_func
@@ -182,7 +182,8 @@ if run_modal_analysis_after_static_loads:
     if run_sw_for_modal:
         U_bar = U_bar_func(g_node_coor)
         # Displacements
-        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB=rad(100), theta_0=rad(0), aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
+        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB=rad(100), theta_0=rad(0), aero_coef_method='2D_fit_cons', n_aero_coef=6,
+                                                                     skew_approach='3D')
         D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
         alpha_sw = copy.deepcopy(D_loc_sw[:g_node_num, 3])  # Global nodal torsional rotation.
         # Internal forces
@@ -259,39 +260,50 @@ if run_modal_analysis_after_static_loads:
 # Separate nonhomogeneous static wind (Nw_sw) analysis. Note: buffeting has its own SW analysis.
 ########################################################################################################################
 if run_Nw_sw:
-    # Get nonhomogeneous wind (Nw) data:
-    sort_by = 'ws_max'  # sort all the WRF 1h values of ws and wd by asceding order. Use 'wd_var' to sort by variance of the wind direction, or 'ws_var' by variance of  wind speeds, or 'ws_max'
-    plot_idx = 0
-    ws_1h_all, wd_1h_all = Nw_ws_wd_func(sort_by, rank=slice(None,None,-1), plot_idx=plot_idx)  # by choosing step=-1 (inside the slice()), the highest values of e.g. ws_max are indexed first-
-    n_WRF_cases = ws_1h_all.shape[0]
-    Nw_U_bar_at_WRF_nodes = ws_1h_all
-    Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
-    Nw_beta_DB_sin = interpolate_from_WRF_nodes_to_g_nodes(np.sin(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
-    Nw_beta_DB_all = from_cos_sin_to_0_2pi(Nw_beta_DB_cos, Nw_beta_DB_sin, out_units='rad')
-    Nw_beta_0_all = beta_0_func(Nw_beta_DB_all)
-    Nw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
-    force_Nw_U_and_N400_U_to_have_same = None
-    Nw_U_bar_all = Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same)
-    # Decide which cases to plot
-    case_slice_to_plot = slice(None)  # e.g. slice(0,10) for first 10 cases; slice(None) to plot ALL cases
-    case_list_to_plot = list(range(n_WRF_cases)[case_slice_to_plot])
-    n_cases_to_plot = len(case_list_to_plot)
+    # # Get nonhomogeneous wind (Nw) data:
+    # sort_by = 'ws_max'  # sort all the WRF 1h values of ws and wd by asceding order. Use 'wd_var' to sort by variance of the wind direction, or 'ws_var' by variance of  wind speeds, or 'ws_max'
+    # plot_idx = 0
+    # ws_1h_all, wd_1h_all = Nw_ws_wd_func(sort_by, rank=slice(None,None,-1), plot_idx=plot_idx)  # by choosing step=-1 (inside the slice()), the highest values of e.g. ws_max are indexed first-
+    # n_WRF_cases = ws_1h_all.shape[0]
+    # Nw_U_bar_at_WRF_nodes = ws_1h_all
+    # Nw_beta_DB_cos = interpolate_from_WRF_nodes_to_g_nodes(np.cos(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
+    # Nw_beta_DB_sin = interpolate_from_WRF_nodes_to_g_nodes(np.sin(wd_1h_all, dtype=float), g_node_coor, WRF_node_coor)
+    # Nw_beta_DB_all = from_cos_sin_to_0_2pi(Nw_beta_DB_cos, Nw_beta_DB_sin, out_units='rad')
+    # Nw_beta_0_all = beta_0_func(Nw_beta_DB_all)
+    # Nw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
+    # force_Nw_U_and_N400_U_to_have_same = None
+    # Nw_U_bar_all = Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same)
+    # # Decide which cases to plot
+    # case_slice_to_plot = slice(None)  # e.g. slice(0,10) for first 10 cases; slice(None) to plot ALL cases
+    # case_list_to_plot = list(range(n_WRF_cases)[case_slice_to_plot])
+    # n_cases_to_plot = len(case_list_to_plot)
+    #
+    # # Get Homogenous wind (Hw) data, for comparison, with equivalent 'mean' or 'energy'. If simply 'None' then its equal to N400
+    # eqv_Hw_U_bar_method = 'energy'  # 'mean' or 'energy' (or None)
+    # eqv_Hw_beta_method = 'U2_weighted_mean'  # 'mean' or 'U_weighted_mean' or 'U2_weighted_mean'
+    # Hw_U_bar_all = U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar_all, force_Nw_U_bar_and_U_bar_to_have_same=eqv_Hw_U_bar_method)
+    # if eqv_Hw_beta_method == 'mean':
+    #     Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(Nw_beta_0_all), axis=1)[:,None], repeats=g_node_num, axis=1)   # making the average of all betas along the bridge girder
+    #     Hw_sin_beta_0_all = np.repeat(np.mean(np.sin(Nw_beta_0_all), axis=1)[:,None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
+    # elif eqv_Hw_beta_method == 'U_weighted_mean':
+    #     Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    #     Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    # elif eqv_Hw_beta_method == 'U2_weighted_mean':
+    #     Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all**2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    #     Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all**2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    # Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad')) # making the average of all betas along the bridge girder
+    # Hw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
 
-    # Get Homogenous wind (Hw) data, for comparison, with equivalent 'mean' or 'energy'. If simply 'None' then its equal to N400
-    eqv_Hw_U_bar_method = 'energy'  # 'mean' or 'energy' (or None)
-    eqv_Hw_beta_method = 'U2_weighted_mean'  # 'mean' or 'U_weighted_mean' or 'U2_weighted_mean'
-    Hw_U_bar_all = U_bar_equivalent_to_Nw_U_bar(g_node_coor, Nw_U_bar_all, force_Nw_U_bar_and_U_bar_to_have_same=eqv_Hw_U_bar_method)
-    if eqv_Hw_beta_method == 'mean':
-        Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(Nw_beta_0_all), axis=1)[:,None], repeats=g_node_num, axis=1)   # making the average of all betas along the bridge girder
-        Hw_sin_beta_0_all = np.repeat(np.mean(np.sin(Nw_beta_0_all), axis=1)[:,None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
-    elif eqv_Hw_beta_method == 'U_weighted_mean':
-        Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-    elif eqv_Hw_beta_method == 'U2_weighted_mean':
-        Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all**2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all**2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-    Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad')) # making the average of all betas along the bridge girder
-    Hw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
+    Nw = NwClass()
+    Nw.set_df_WRF(sort_by='ws_max')
+    # n_WRF_cases
+    Nw.df_WRF
+    Nw.props_WRF
+    Nw.aux_WRF
+    Nw.set_structure(g_node_coor, p_node_coor, alpha)
+    Nw.set_Nw_wind(df_WRF_idx='all', set_static_wind_only=True)
+    Nw.plot_U(df_WRF_idx=Nw.df_WRF_idx)
+
 
     # Non-homogenous and Homogeneous static wind analysis results
     def D_loc_and_R6g_from_all_static_wind_cases(Nw_U_bar_all, Nw_beta_0_all, Nw_theta_0_all, case_slice_to_plot, g_node_coor, p_node_coor, alpha):
