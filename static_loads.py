@@ -29,15 +29,12 @@ def R_loc_func(D_node_glob, g_node_coor, p_node_coor, alpha):
     return R_all_elem_loc
 
 
-def static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach):
+def static_wind_from_U_beta_theta_bar(g_node_coor, p_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach):
     """
     :return: New girder and gontoon node coordinates, as well as the displacements that led to them.
     """
     g_node_num = len(g_node_coor)
     p_node_num = len(p_node_coor)
-    beta_0 = beta_0_func(beta_DB)
-    U_bar = U_bar_func(g_node_coor)
-    beta_bar, theta_bar = beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
     stiff_matrix = stiff_matrix_func(g_node_coor, p_node_coor, alpha)  # Units: (N)
     Pb = Pb_func(g_node_coor, beta_bar, theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='ones')
     sw_vector = np.array([U_bar, np.zeros(len(U_bar)), np.zeros(len(U_bar))])  # instead of a=(u,v,w) a vector (U,0,0) is used.
@@ -49,6 +46,17 @@ def static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coe
     D_glob_sw = np.reshape(D_sw_flat, (g_node_num + p_node_num, 6))
     g_node_coor_sw = g_node_coor + D_glob_sw[:g_node_num,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
     p_node_coor_sw = p_node_coor + D_glob_sw[g_node_num:,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
+    return g_node_coor_sw, p_node_coor_sw, D_glob_sw
+
+
+def static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach):
+    """
+    :return: New girder and gontoon node coordinates, as well as the displacements that led to them.
+    """
+    beta_0 = beta_0_func(beta_DB)
+    U_bar = U_bar_func(g_node_coor)
+    beta_bar, theta_bar = beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
+    g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_from_U_beta_theta_bar(g_node_coor, p_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach)
     return g_node_coor_sw, p_node_coor_sw, D_glob_sw
 
 

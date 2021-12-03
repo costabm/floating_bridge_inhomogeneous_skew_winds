@@ -10,18 +10,17 @@ import os
 import copy
 import datetime
 import json
-from abc import ABC
-
 import netCDF4
 import warnings
 import numpy as np
 import pandas as pd
 from windrose import WindroseAxes
 from scipy import interpolate
-from buffeting import U_bar_func, beta_0_func, RP, Pb_func, Ai_func, iLj_func, Cij_func
+from buffeting import U_bar_func, beta_0_func, RP, Pb_func, Ai_func, iLj_func, Cij_func, beta_and_theta_bar_func
 from mass_and_stiffness_matrix import stiff_matrix_func, stiff_matrix_12b_local_func, stiff_matrix_12c_local_func, linmass, SDL
 from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_node_coor_func, R, arc_length, zbridge, bridge_shape, g_s_3D_func
-from transformations import T_LsGs_3g_func, T_GsNw_func, from_cos_sin_to_0_2pi, T_xyzXYZ, T_xyzXYZ_ndarray
+from transformations import T_LsGs_3g_func, T_GsNw_func, from_cos_sin_to_0_2pi, T_xyzXYZ_ndarray, mat_6_Ls_node_12_Ls_elem_girder_func, mat_Ls_node_Gs_node_all_func, beta_within_minus_Pi_and_Pi_func
+from static_loads import static_wind_from_U_beta_theta_bar, R_loc_func
 from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_bridge_WRF_nodes, bridge_WRF_nodes_coor_func, earth_R, lat_lon_aspect_ratio
 from other.orography import get_all_geotiffs_merged
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -66,7 +65,7 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 #     assert np.allclose(WRF_node_coor[:, :2], WRF_node_coor_2)
 
 
-# todo: see if we can replace the following 3 functions with the NwClass:
+# todo: see if we can replace the following 3 functions with the NwOneCase:
 # def Nw_U_bar_func(g_node_coor, Nw_U_bar_at_WRF_nodes, force_Nw_U_and_N400_U_to_have_same=None):
 #     """
 #     Returns a vector of Nonhomogeneous mean wind at each of the g_nodes
@@ -102,44 +101,64 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 #         assert all(np.isclose(np.mean(Nw_U_bar ** 2, axis=1)[:,None], np.mean(U_bar_equivalent ** 2, axis=1)[:,None]))  # same energy = same mean(U**2))
 #     return U_bar_equivalent
 
-# def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
-#     """Returns the Nonhomogeneous beta_bar and theta_bar at each node, relative to the mean of the axes of the adjacent elements.
-#     Note: the mean of -179 deg and 178 deg should be 179.5 deg and not -0.5 deg. See: https://en.wikipedia.org/wiki/Mean_of_circular_quantities"""
-#     n_g_nodes = len(g_node_coor)
-#     assert len(Nw_beta_0) == len(Nw_theta_0) == n_g_nodes
-#     T_LsGs = T_LsGs_3g_func(g_node_coor, alpha)
-#     T_GsNw = T_GsNw_func(Nw_beta_0, Nw_theta_0)
-#     T_LsNw = np.einsum('nij,njk->nik', T_LsGs, T_GsNw)
-#     U_Gw_norm = np.array([1, 0, 0])  # U_Gw = (U, 0, 0), so the normalized U_Gw_norm is (1, 0, 0)
-#     U_Ls = np.einsum('nij,j->ni', T_LsNw, U_Gw_norm)
-#     Ux = U_Ls[:, 0]
-#     Uy = U_Ls[:, 1]
-#     Uz = U_Ls[:, 2]
-#     Uxy = np.sqrt(Ux ** 2 + Uy ** 2)
-#     Nw_beta_bar = np.array([-np.arccos(Uy[i] / Uxy[i]) * np.sign(Ux[i]) for i in range(len(g_node_coor))])
-#     Nw_theta_bar = np.array([np.arcsin(Uz[i] / 1) for i in range(len(g_node_coor))])
-#     return Nw_beta_bar, Nw_theta_bar
+# # DELETE THIS FUNCTION
+# def Nw_static_wind_one(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_bar, Nw_theta_bar, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D'):
+#     """
+#     One Nw case only
+#     :return: New girder and pontoon node coordinates, as well as the displacements that led to them.
+#     """
+#     g_node_num = len(g_node_coor)
+#     p_node_num = len(p_node_coor)
+#     stiff_matrix = stiff_matrix_func(g_node_coor, p_node_coor, alpha)  # Units: (N)
+#     Pb = Pb_func(g_node_coor, Nw_beta_bar, Nw_theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='ones')
+#     sw_vector = np.array([Nw_U_bar, np.zeros(len(Nw_U_bar)), np.zeros(len(Nw_U_bar))])  # instead of a=(u,v,w) a vector (U,0,0) is used.
+#     F_sw = np.einsum('ndi,in->nd', Pb, sw_vector) / 2  # Global buffeting force vector. See Paper from LD Zhu, eq. (24). Units: (N)
+#     F_sw_flat = np.ndarray.flatten(F_sw)  # flattening
+#     F_sw_flat = np.array(list(F_sw_flat) + [0]*len(p_node_coor)*6)  # adding 0 force to all the remaining pontoon DOFs
+#     # Global nodal Displacement matrix
+#     D_sw_flat = np.linalg.inv(stiff_matrix) @ F_sw_flat
+#     D_glob_sw = np.reshape(D_sw_flat, (g_node_num + p_node_num, 6))
+#     g_node_coor_sw = g_node_coor + D_glob_sw[:g_node_num,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
+#     p_node_coor_sw = p_node_coor + D_glob_sw[g_node_num:,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
+#     return g_node_coor_sw, p_node_coor_sw, D_glob_sw
 
 
-def Nw_static_wind_func(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_0, Nw_theta_0, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D'):
+def Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_U_bar_all, Nw_beta_bar_all, Nw_theta_bar_all, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D'):
     """
-    :return: New girder and gontoon node coordinates, as well as the displacements that led to them.
+    Perform static wind analyses, for all available Nw cases
+    From given U_bar, beta_0 and theta_0, and a static wind analysis, obtain:
+     1 - displacements at all girder nodes.
+     2 - absolute value of the 6 forces & moments at all girder nodes
+    All girder nodes ==  all 1st nodes of each element + last node of last element
+    Inputs shape(n_cases, g_node_num)
+    Outputs shape(n_cases, g_node_num, 6)
     """
     g_node_num = len(g_node_coor)
-    p_node_num = len(p_node_coor)
-    Nw_beta_bar, Nw_theta_bar = Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha)
-    stiff_matrix = stiff_matrix_func(g_node_coor, p_node_coor, alpha)  # Units: (N)
-    Pb = Pb_func(g_node_coor, Nw_beta_bar, Nw_theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='ones')
-    sw_vector = np.array([Nw_U_bar, np.zeros(len(Nw_U_bar)), np.zeros(len(Nw_U_bar))])  # instead of a=(u,v,w) a vector (U,0,0) is used.
-    F_sw = np.einsum('ndi,in->nd', Pb, sw_vector) / 2  # Global buffeting force vector. See Paper from LD Zhu, eq. (24). Units: (N)
-    F_sw_flat = np.ndarray.flatten(F_sw)  # flattening
-    F_sw_flat = np.array(list(F_sw_flat) + [0]*len(p_node_coor)*6)  # adding 0 force to all the remaining pontoon DOFs
-    # Global nodal Displacement matrix
-    D_sw_flat = np.linalg.inv(stiff_matrix) @ F_sw_flat
-    D_glob_sw = np.reshape(D_sw_flat, (g_node_num + p_node_num, 6))
-    g_node_coor_sw = g_node_coor + D_glob_sw[:g_node_num,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
-    p_node_coor_sw = p_node_coor + D_glob_sw[g_node_num:,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
-    return g_node_coor_sw, p_node_coor_sw, D_glob_sw
+    g_elem_num = g_node_num - 1
+    n_cases = Nw_U_bar_all.shape[0]
+    Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all = [], [], []
+    Nw_D_loc_all = []  # displacements in local coordinates
+    Nw_R12_all = []  # internal element forces 12 DOF
+    for i, (Nw_U_bar, Nw_beta_bar, Nw_theta_bar) in enumerate(zip(Nw_U_bar_all, Nw_beta_bar_all, Nw_theta_bar_all)):
+        print(f'Calculating sw... Case: {i}')
+        Nw_g_node_coor, Nw_p_node_coor, Nw_D_glob = static_wind_from_U_beta_theta_bar(g_node_coor, p_node_coor, alpha, Nw_U_bar, Nw_beta_bar, Nw_theta_bar,
+                                                                                      aero_coef_method=aero_coef_method, n_aero_coef=n_aero_coef, skew_approach=skew_approach)
+        Nw_D_loc = mat_Ls_node_Gs_node_all_func(Nw_D_glob, g_node_coor, p_node_coor, alpha)  # Displacements in local coordinates
+        Nw_R_loc = R_loc_func(Nw_D_glob, g_node_coor, p_node_coor, alpha)  # # Internal forces. orig. coord. + displacem. used to calc. R.
+        Nw_g_node_coor_all.append(Nw_g_node_coor)  # Storing
+        Nw_p_node_coor_all.append(Nw_p_node_coor)  # Storing
+        Nw_D_glob_all.append(Nw_D_glob)  # Storing
+        Nw_D_loc_all.append(Nw_D_loc)  # Storing
+        Nw_R12_all.append(Nw_R_loc)  # Storing
+    # Converting to arrays:
+    Nw_g_node_coor_all = np.array(Nw_g_node_coor_all)
+    Nw_p_node_coor_all = np.array(Nw_p_node_coor_all)
+    Nw_D_glob_all = np.array(Nw_D_glob_all)
+    Nw_D_loc_all = np.array(Nw_D_loc_all)
+    Nw_R12_all = np.array(Nw_R12_all)  # R12 -> Internal forces represented as the 12 DOF of each element
+    Nw_R12g_all = Nw_R12_all[:, :g_elem_num]  # g -> girder elements only
+    Nw_R6g_all = np.array([mat_6_Ls_node_12_Ls_elem_girder_func(Nw_R12g_all[i]) for i in range(n_cases)])  # From 12DOF to 6DOF (first 6 DOF of each 12DOF element + last 6 DOF of the last element. See description of the function for details)
+    return Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R6g_all
 
 
 def get_Iu_ANN_Z2_preds(ANN_Z1_preds, EN_Z1_preds, EN_Z2_preds):
@@ -216,9 +235,30 @@ def Nw_Iu_all_dirs_database(g_node_coor, model='ANN', use_existing_file=True):
         return Iu_14m_EN_preds
 
 
-class NwClass:
+def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
+    """Returns the Nonhomogeneous beta_bar and theta_bar at each node, relative to the mean of the axes of the adjacent elements.
+    Note: the mean of -179 deg and 178 deg should be 179.5 deg and not -0.5 deg. See: https://en.wikipedia.org/wiki/Mean_of_circular_quantities"""
+    n_g_nodes = len(g_node_coor)
+    assert Nw_beta_0.shape[-1] == Nw_theta_0.shape[-1] == n_g_nodes
+    T_LsGs = T_LsGs_3g_func(g_node_coor, alpha)
+    T_GsNw = T_GsNw_func(Nw_beta_0, Nw_theta_0)
+    T_LsNw = np.einsum('...ij,...jk->...ik', T_LsGs, T_GsNw)  # todo: if problems, replace "..." with "n"
+    U_Gw_norm = np.array([1, 0, 0])  # U_Gw = (U, 0, 0), so the normalized U_Gw_norm is (1, 0, 0)
+    U_Ls = np.einsum('...ij,j->...i', T_LsNw, U_Gw_norm)   # todo: if problems, replace "..." with "n"
+    Ux = U_Ls[..., 0]  # todo: if problems, replace "..." with ":"
+    Uy = U_Ls[..., 1]  # todo: if problems, replace "..." with ":"
+    Uz = U_Ls[..., 2]  # todo: if problems, replace "..." with ":"
+    Uxy = np.sqrt(Ux ** 2 + Uy ** 2)
+    # Nw_beta_bar = np.array([-np.arccos(Uy[i] / Uxy[i]) * np.sign(Ux[i]) for i in range(len(g_node_coor))])
+    # Nw_theta_bar = np.array([np.arcsin(Uz[i] / 1) for i in range(len(g_node_coor))])
+    Nw_beta_bar = -np.arccos(Uy / Uxy) * np.sign(Ux)
+    Nw_theta_bar = np.arcsin(Uz / 1)
+    return Nw_beta_bar, Nw_theta_bar
+
+
+class NwOneCase:
     """
-    Non-homogeneous wind class
+    Non-homogeneous wind class. Gets the necessary information of one WRF case.
     """
     def __init__(self, reset_structure=True, reset_WRF_database=True, reset_wind=True):
         if reset_structure:
@@ -249,6 +289,8 @@ class NwClass:
             # Other
             self.create_new_Iu_all_dirs_database = True  # This needs to be run once
             self.equiv_Hw_U_bar = None  # Equivalent Homogeneous mean wind speeds at all the girder nodes
+            self.equiv_Hw_beta_bar = None  # Equivalent Homogeneous beta bar
+            self.equiv_Hw_theta_bar = None  # Equivalent Homogeneous theta bar
 
     def set_df_WRF(self, U_tresh=12, tresh_requirement_type='any', sort_by='time'):
         """
@@ -301,8 +343,16 @@ class NwClass:
         self.g_node_coor = g_node_coor
         self.p_node_coor = p_node_coor
         self.alpha = alpha
-        # Reseting wind
+        # Reseting wind. Making sure we have no structural-dependent Nw data yet (e.g. U_bar depends on n_g_nodes).
         self.__init__(reset_structure=False, reset_WRF_database=False, reset_wind=True)
+
+    def set_Nw_wind(self, df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=None, model='ANN', cospec_type=2,  f_array='static_wind_only'):
+        self._set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=force_Nw_U_and_N400_U_to_have_same)
+        self._set_beta_and_theta_bar()
+        self._set_Ii(model=model)
+        if not f_array is 'static_wind_only':
+            self._set_S_a(f_array=f_array)
+            self._set_S_aa(cospec_type=cospec_type)
 
     def _set_U_bar_beta_DB_beta_0_theta_0(self, df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=None):
         """
@@ -352,19 +402,7 @@ class NwClass:
         alpha = self.alpha
         Nw_beta_0 = self.beta_0
         Nw_theta_0 = self.theta_0
-        n_g_nodes = len(g_node_coor)
-        assert len(Nw_beta_0) == len(Nw_theta_0) == n_g_nodes
-        T_LsGs = T_LsGs_3g_func(g_node_coor, alpha)
-        T_GsNw = T_GsNw_func(Nw_beta_0, Nw_theta_0)
-        T_LsNw = np.einsum('nij,njk->nik', T_LsGs, T_GsNw)
-        U_Gw_norm = np.array([1, 0, 0])  # U_Gw = (U, 0, 0), so the normalized U_Gw_norm is (1, 0, 0)
-        U_Ls = np.einsum('nij,j->ni', T_LsNw, U_Gw_norm)
-        Ux = U_Ls[:, 0]
-        Uy = U_Ls[:, 1]
-        Uz = U_Ls[:, 2]
-        Uxy = np.sqrt(Ux ** 2 + Uy ** 2)
-        Nw_beta_bar = np.array([-np.arccos(Uy[i] / Uxy[i]) * np.sign(Ux[i]) for i in range(len(g_node_coor))])
-        Nw_theta_bar = np.array([np.arcsin(Uz[i] / 1) for i in range(len(g_node_coor))])
+        Nw_beta_bar, Nw_theta_bar = Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha)
         self.beta_bar = Nw_beta_bar
         self.theta_bar = Nw_theta_bar
 
@@ -496,13 +534,96 @@ class NwClass:
         # plt.plot(cross_spec_3)
         self.S_aa = S_aa
 
-    def set_Nw_wind(self, df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=None, model='ANN', cospec_type=2,  f_array='static_wind_only'):
-        self._set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=force_Nw_U_and_N400_U_to_have_same)
-        self._set_beta_and_theta_bar()
-        self._set_Ii(model=model)
-        if not f_array == 'static_wind_only':
-            self._set_S_a(f_array=f_array)
-            self._set_S_aa(cospec_type=cospec_type)
+
+class NwAllCases:
+    """
+    Whereas NwOneCase stores the Nw data of one WRF case, this NwAllCases stores the Nw data of multiple or all WRF cases
+    n_Nw_cases: 'all' or an integer. An integer, e.g. 10, will store the Nw data of the last 10 cases (df_WRF has ascending order), e.g. those with highest ws_max
+    """
+    def __init__(self, reset_structure=True, reset_WRF_database=True, reset_wind=True):
+        if reset_structure:
+            # Structure - Only 1
+            self.g_node_coor = None
+            self.p_node_coor = None
+            self.alpha = None
+            # Structure - 1 for each Nw case, updated after each static wind analysis
+            self.g_node_coor_sw = []
+            self.p_node_coor_sw = []
+            self.alpha_sw = []
+        if reset_WRF_database:
+            # WRF Dataframe:
+            self.df_WRF = None  # Dataframe with WRF speeds and directions at each of the 11 WRF-bridge nodes
+            self.aux_WRF = {}  # Auxiliary variables are stored here
+            self.props_WRF = {}  # Properties of the WRF data
+        if reset_wind:
+            # Non-homogeneous wind properties. Those with "_sw" are an update after a static analysis.
+            self.n_Nw_cases = None
+            self.U_bar = []  # Array of non-homogeneous mean wind speeds at all the girder nodes.
+            self.beta_DB = []
+            self.beta_0 = []
+            self.theta_0 = []
+            self.beta_bar = []
+            self.theta_bar = []
+            self.beta_bar_sw = []  #  updated after a static analysis
+            self.theta_bar_sw = []  #  updated after a static analysis. This takes into account alpha_sw
+            self.Ii = []  # Turbulence intensities
+            self.f_array = []
+            self.Ai = []
+            self.iLj = []
+            self.S_a = []
+            self.S_aa = []
+            # Other
+            self.equiv_Hw_U_bar = []  # Equivalent Homogeneous mean wind speeds at all the girder nodes
+            self.equiv_Hw_beta_bar = []  # Equivalent Homogeneous beta bar
+            self.equiv_Hw_theta_bar = []  # Equivalent Homogeneous theta bar
+
+    def set_df_WRF(self, U_tresh=12, tresh_requirement_type='any', sort_by='time'):
+        """
+        Set (establish) a dataframe with the WRF data, according to the argument filters.
+        U_tresh: e.g. 12  # m/s. threshold. Data rows with datapoints below threshold, are removed.
+        tresh_requirement_type: 'any' to keep all cases where at least 1 U is above U_tresh; 'all' to keep only cases where all U >= U_tresh
+        sort_by: 'time', 'ws_var', 'ws_max', 'wd_var'
+        """
+        Nw_temp = NwOneCase()
+        Nw_temp.set_df_WRF(U_tresh=U_tresh, tresh_requirement_type=tresh_requirement_type, sort_by=sort_by)
+        self.df_WRF = Nw_temp.df_WRF
+        self.aux_WRF = Nw_temp.aux_WRF
+        self.props_WRF = Nw_temp.props_WRF
+
+    def set_structure(self, g_node_coor, p_node_coor, alpha):
+        self.g_node_coor = g_node_coor
+        self.p_node_coor = p_node_coor
+        self.alpha = alpha
+        # Reseting wind. Making sure we have no structural-dependent Nw data yet (e.g. U_bar depends on n_g_nodes and beta_bar on g_node_coor, so wind needs to be reset).
+        self.__init__(reset_structure=False, reset_WRF_database=False, reset_wind=True)
+
+    def set_Nw_wind(self, n_Nw_cases='all', force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, f_array='static_wind_only'):
+        assert self.df_WRF is not None, "df_WRF is not set. Please run the method set_df_WRF() on the current instance"
+        assert self.g_node_coor is not None, "Structure is not set. Please run the method set_structure() on the current instance"
+        if n_Nw_cases == 'all':
+            n_Nw_cases = len(self.df_WRF)
+        self.n_Nw_cases = n_Nw_cases
+        # Copying the current WRF and structural data into a temporary instance of NwOneCase, which will be used to retrieve the Nw wind data for all WRF cases
+        Nw_temp = NwOneCase()
+        Nw_temp.set_structure(self.g_node_coor, self.p_node_coor, self.alpha)
+        Nw_temp.df_WRF = self.df_WRF
+        Nw_temp.aux_WRF = self.aux_WRF
+        Nw_temp.props_WRF = self.props_WRF
+        for i in range(n_Nw_cases):
+            Nw_temp.set_Nw_wind(df_WRF_idx=-i-1, force_Nw_U_and_N400_U_to_have_same=force_Nw_U_and_N400_U_to_have_same, model=Iu_model, cospec_type=cospec_type, f_array=f_array)
+            self.U_bar.append(Nw_temp.U_bar)
+            self.beta_DB.append(Nw_temp.beta_DB)
+            self.beta_0.append(Nw_temp.beta_0)
+            self.theta_0.append(Nw_temp.theta_0)
+            self.beta_bar.append(Nw_temp.beta_bar)
+            self.theta_bar.append(Nw_temp.theta_bar)
+            self.Ii.append(Nw_temp.Ii)
+            self.f_array.append(Nw_temp.f_array)
+            self.Ai.append(Nw_temp.Ai)
+            self.iLj.append(Nw_temp.iLj)
+            self.S_a.append(Nw_temp.S_a)
+            self.S_aa.append(Nw_temp.S_aa)
+        self._convert_attributes_from_lists_to_arrs()
 
     def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
         """
@@ -524,22 +645,42 @@ class NwClass:
             assert all(np.isclose(np.mean(Nw_U_bar ** 2, axis=1)[:, None], np.mean(U_bar_equivalent ** 2, axis=1)[:, None]))  # same energy = same mean(U**2))
         self.equiv_Hw_U_bar = U_bar_equivalent
 
-    def set_equivalent_Hw_beta(self):
-        # eqv_Hw_U_bar_method = 'energy'  # 'mean' or 'energy' (or None)
-        # eqv_Hw_beta_method = 'U2_weighted_mean'  # 'mean' or 'U_weighted_mean' or 'U2_weighted_mean'
-        # if eqv_Hw_beta_method == 'mean':
-        #     Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(Nw_beta_0_all), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
-        #     Hw_sin_beta_0_all = np.repeat(np.mean(np.sin(Nw_beta_0_all), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
-        # elif eqv_Hw_beta_method == 'U_weighted_mean':
-        #     Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        #     Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        # elif eqv_Hw_beta_method == 'U2_weighted_mean':
-        #     Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        #     Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0_all), axis=1, weights=Nw_U_bar_all ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        # Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad'))  # making the average of all betas along the bridge girder
-        # Hw_theta_0_all = np.zeros((n_WRF_cases, g_node_num))
-        raise NotImplementedError
+    def set_equivalent_Hw_beta(self, eqv_Hw_beta_method = 'U2_weighted_mean'):
+        """eqv_Hw_beta_method: 'mean' or 'U_weighted_mean' or 'U2_weighted_mean'"""
+        g_node_coor = self.g_node_coor
+        g_node_num = g_node_coor.shape[0]
+        n_Nw_cases = self.n_Nw_cases
+        if eqv_Hw_beta_method == 'mean':
+            Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(self.beta_0), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
+            Hw_sin_beta_0_all = np.repeat(np.mean(np.sin(self.beta_0), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
+        elif eqv_Hw_beta_method == 'U_weighted_mean':
+            Hw_cos_beta_0_all = np.repeat(np.average(np.cos(self.beta_0), axis=1, weights=self.U_bar)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+            Hw_sin_beta_0_all = np.repeat(np.average(np.sin(self.beta_0), axis=1, weights=self.U_bar)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+        elif eqv_Hw_beta_method == 'U2_weighted_mean':
+            Hw_cos_beta_0_all = np.repeat(np.average(np.cos(self.beta_0), axis=1, weights=self.U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+            Hw_sin_beta_0_all = np.repeat(np.average(np.sin(self.beta_0), axis=1, weights=self.U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+        Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad'))  # making the average of all betas along the bridge girder
+        Hw_theta_0_all = np.zeros((n_Nw_cases, g_node_num))
+        Hw_beta_bar_all, Hw_theta_bar_all = Nw_beta_and_theta_bar_func(g_node_coor, Hw_beta_0_all, Hw_theta_0_all, self.alpha)
+        self.equiv_Hw_beta_bar = Hw_beta_bar_all
+        self.equiv_Hw_theta_bar = Hw_theta_bar_all
 
+    def _convert_attributes_from_lists_to_arrs(self):
+        """Converts the instance attributes from a list of lists, to numpy arrays"""
+        self.U_bar = np.array(self.U_bar)
+        self.beta_DB = np.array(self.beta_DB)
+        self.beta_0 = np.array(self.beta_0)
+        self.theta_0 = np.array(self.theta_0)
+        self.beta_bar = np.array(self.beta_bar)
+        self.theta_bar = np.array(self.theta_bar)
+        self.Ii = np.array(self.Ii)
+        self.f_array = np.array(self.f_array)
+        self.Ai = np.array(self.Ai)
+        self.iLj = np.array(self.iLj)
+        self.S_a = np.array(self.S_a)
+        self.S_aa = np.array(self.S_aa)
+
+    # # todo: Static analysis??  self.beta_bar_sw = [], self.theta_bar_sw = []
     def plot_U(self, df_WRF_idx):
         # def colorbar(mappable):
         #     ax = mappable.axes
@@ -560,8 +701,9 @@ class NwClass:
         lons_bridge = self.aux_WRF['lons_bridge']
         plt.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
         plt.gca().set_aspect(lat_lon_aspect_ratio, adjustable='box')
-        plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot), color=ws_colors, angles='uv', scale=80, width=0.015, headlength=3, headaxislength=3)
-        cbar = plt.colorbar(sm,fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
+        plt.quiver(*np.array([lons_bridge, lats_bridge]), -ws_to_plot * np.sin(wd_to_plot), -ws_to_plot * np.cos(wd_to_plot), color=ws_colors, angles='uv', scale=80, width=0.015, headlength=3,
+                   headaxislength=3)
+        cbar = plt.colorbar(sm, fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
         cbar.set_label('U [m/s]')
         plt.title(f'Inhomogeneous wind')
         plt.xlim(5.35, 5.41)
@@ -698,140 +840,53 @@ class NwClass:
 
         Iu_min_all_pts = np.min(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
         Iu_max_all_pts = np.max(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
-        rose_radius = np.ones(11)*0.4
+        rose_radius = np.ones(11) * 0.4
         for pt_idx, pt in enumerate(bj_pt_strs):
-            if True: # pt_idx%10==0: # if point index is even:
+            if True:  # pt_idx%10==0: # if point index is even:
                 ########### WIND ROSES
                 wd = np.array(dict_Iu_48m_ANN_preds[pt]['sector'])
                 Iu = np.array(dict_Iu_48m_ANN_preds[pt]['Iu'])
                 Iu_min = np.min(Iu)
                 Iu_max = np.max(Iu)
                 wrax[pt] = inset_axes(main_ax,
-                                  width=rose_radius[pt_idx],  # size in inches
-                                  height=rose_radius[pt_idx],  # size in inches
-                                  loc='center',  # center bbox at given position
-                                  bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
-                                  bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
-                                  axes_class=WindroseAxes)  # specify the class of the axe
+                                      width=rose_radius[pt_idx],  # size in inches
+                                      height=rose_radius[pt_idx],  # size in inches
+                                      loc='center',  # center bbox at given position
+                                      bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
+                                      bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
+                                      axes_class=WindroseAxes)  # specify the class of the axe
                 # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
                 # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
-                wrax[pt].bar(wd, Iu, opening=1.0, nsector=360 , cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts),
-                                                                                                                  (Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)))
+                wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+                                                                                      (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
                 wrax[pt].tick_params(labelleft=False, labelbottom=False)
                 wrax[pt].patch.set_alpha(0)
                 wrax[pt].axis('off')
 
-        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts,vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
+        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
         cb.set_label('$I_u$')
         main_ax.axis('off')
         plt.savefig('plots/ANN_preds_zoomin.png')
         plt.show()
         plt.close()
 
-
-class NwCasesClass(NwClass):
-    """
-    Creates a subclass of NwClass.
-    Whereas NwClass stores the Nw data of one WRF case, this NwCasesClass stores the Nw data of multiple or all WRF cases
-    n_Nw_cases: 'all' or an integer. An integer, e.g. 10, will store the Nw data of the last 10 cases (df_WRF has ascending order), e.g. those with highest ws_max
-    """
-    def __init__(self, reset_structure=True, reset_WRF_database=True, reset_wind=True):
-        super().__init__(reset_structure=reset_structure, reset_WRF_database=reset_WRF_database, reset_wind=reset_wind)
-
-    def set_Nw_wind(self, n_Nw_cases='all', force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, f_array='static_wind_only'):
-        assert self.df_WRF is not None, "df_WRF is not set. Please run the method set_df_WRF() on the current instance"
-        assert self.g_node_coor is not None, "structure is not set. Please run the method set_structure() on the current instance"
-        g_node_coor_all = []
-        alpha_all = []
-        p_node_coor_all = []
-        U_bar_all = []  # Array of non-homogeneous mean wind speeds at all the girder nodes.
-        beta_DB_all = []
-        beta_0_all = []
-        theta_0_all = []
-        beta_bar_all = []
-        theta_bar_all = []
-        Ii_all = []  # Turbulence intensities
-        f_array_all = []
-        Ai_all = []
-        iLj_all = []
-        S_a_all = []
-        S_aa_all = []
-
-        if n_Nw_cases == 'all':
-            n_Nw_cases = len(self.df_WRF)
-
-        Nw_temp = NwClass()  # a temporary instance of NwClass, where each Nw case will be generated and then retrieved to this subclass
-        Nw_temp.set_structure(self.g_node_coor, self.p_node_coor, self.alpha)
-        for i in range(n_Nw_cases):
-            Nw_temp.set_Nw_wind(df_WRF_idx=i, force_Nw_U_and_N400_U_to_have_same=force_Nw_U_and_N400_U_to_have_same, model=Iu_model, cospec_type=cospec_type, f_array=f_array)
-            U_bar_all.append(Nw_temp.U_bar)
-        self.U_bar = U_bar_all
-
-        # self._set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=df_WRF_idx, force_Nw_U_and_N400_U_to_have_same=force_Nw_U_and_N400_U_to_have_same)
-        # self._set_beta_and_theta_bar()
-        # self._set_Ii(model=model)
-        # if not set_static_wind_only:
-        #     self._set_S_a(f_array=f_array)
-        #     self._set_S_aa(cospec_type=cospec_type)
-
-    #  TRASH??:
-    # def set_Nw_wind_cases(self, n_Nw_cases='all', sort_by='wd_var', f_array=None, force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, set_static_wind_only=False):
-    #
-    #
-
-        pass
+# alpha = np.zeros(g_node_coor.shape[0])
+# f_min = 0.002
+# f_max = 0.5
+# n_freq = 128
+# f_array = np.linspace(f_min, f_max, n_freq)
 
 
-
-
-
-# todo:delete
-alpha = np.zeros(g_node_coor.shape[0])
-f_min = 0.002
-f_max = 0.5
-n_freq = 128
-f_array = np.linspace(f_min, f_max, n_freq)
-# todo:delete
-
-# Nw = NwClass()
+# Nw = NwOneCase()
 # Nw.set_df_WRF(sort_by='wd_var')
 # Nw.set_structure(g_node_coor, p_node_coor, alpha)
 # Nw.set_Nw_wind(df_WRF_idx=-20, f_array=f_array)
 # Nw.plot_U(df_WRF_idx=Nw.df_WRF_idx)
 # # Nw.plot_Ii_at_WRF_points()
 
-
-
-Nw_all_cases = NwCasesClass()
-Nw_all_cases.set_df_WRF(sort_by='wd_var')
-Nw_all_cases.set_structure(g_node_coor, p_node_coor, alpha)
-Nw_all_cases.set_Nw_wind(f_array=f_array)
-
-
-
-
-
-
-
-
-# print(help(Nw_all_cases))
-# Nw_all_cases.S_aa
-
-
-
-# Nw.set_U_bar_beta_DB_beta_0_theta_0(df_WRF_idx=-1)
-# Nw.plot_U(df_WRF_idx=-1)
-# Nw.set_beta_and_theta_bar()
-# Nw.set_Ii()
-# Nw.set_S_a(f_array)
-# Nw.plot_Ii_at_WRF_points()
-# Nw.set_S_aa()
-
-
-
-
-
-
-
+# Nw_all_cases = NwAllCases()
+# Nw_all_cases.set_df_WRF(sort_by='wd_var')
+# Nw_all_cases.set_structure(g_node_coor, p_node_coor, alpha)
+# Nw_all_cases.set_Nw_wind(n_Nw_cases='all', f_array=f_array)
 
 
