@@ -158,7 +158,7 @@ def Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_U_bar_all, Nw_beta_ba
     Nw_R12_all = np.array(Nw_R12_all)  # R12 -> Internal forces represented as the 12 DOF of each element
     Nw_R12g_all = Nw_R12_all[:, :g_elem_num]  # g -> girder elements only
     Nw_R6g_all = np.array([mat_6_Ls_node_12_Ls_elem_girder_func(Nw_R12g_all[i]) for i in range(n_cases)])  # From 12DOF to 6DOF (first 6 DOF of each 12DOF element + last 6 DOF of the last element. See description of the function for details)
-    return Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R6g_all
+    return Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R12_all, Nw_R6g_all
 
 
 def get_Iu_ANN_Z2_preds(ANN_Z1_preds, EN_Z1_preds, EN_Z2_preds):

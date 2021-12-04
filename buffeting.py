@@ -40,6 +40,7 @@ and off-diagonals mean xy, yz, etc. then is the second case.
 
 The bridge axis is oriented from 190deg (SSW) to 10deg (NNE) (Design Basis convention).
 """
+import json
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1090,7 +1091,11 @@ def Fad_one_t_C_Ci_NL_with_SE(g_node_coor, p_node_coor, alpha, beta_0, theta_0, 
 # Frequency Domain Buffeting Analysis:
 ########################################################################################################################
 def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, skew_approach, include_SE, flutter_derivatives_type, n_modes, f_min, f_max, n_freq, g_node_coor, p_node_coor,
-                      Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep, dtype_in_response_spectra, generate_spectra_for_discretization=False):
+                      Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep, dtype_in_response_spectra,
+                      Nw_idx, Nw_or_equiv_Hw, generate_spectra_for_discretization=False):
+
+    print(f'{Nw_or_equiv_Hw} case index: {Nw_idx}') if Nw_idx is not None else 'Running original homogeneous wind only.'
+
     print('beta_DB (deg) = '+str(np.round(deg(beta_DB), 1)))
     start_time_1 = time.time()
     g_node_num = len(g_node_coor)
@@ -1105,8 +1110,8 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     n_freq = len(f_array)
     w_array = f_array * 2 * np.pi
 
-    R_loc = copy.deepcopy(R_loc)  # Otherwise it would increase during repetitive calls of this function
-    D_loc = copy.deepcopy(D_loc)  # Otherwise it would increase during repetitive calls of this function
+    R_loc = copy.deepcopy(R_loc)  # Otherwise, it would increase during repetitive calls of this function
+    D_loc = copy.deepcopy(D_loc)  # Otherwise, it would increase during repetitive calls of this function
     girder_N = copy.deepcopy(R_loc[:g_elem_num, 0])  # girder axial forces
     c_N = copy.deepcopy(R_loc[g_elem_num:, 0])  # columns axial forces
     alpha = copy.deepcopy(D_loc[:g_node_num, 3])  # girder nodes torsional rotations
@@ -1117,13 +1122,23 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     delta_w_array = delta_array_func(w_array)
 
     if include_sw:  # including static wind
-        from static_loads import static_wind_func, R_loc_func
-        # Displacements
-        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach)
-        D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
+        if Nw_idx is None:  # Homogeneous wind:
+            from static_loads import static_wind_func, R_loc_func
+            # Displacements
+            g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach)
+            D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
+            # Internal forces
+            R_loc_sw = R_loc_func(D_glob_sw, g_node_coor, p_node_coor, alpha)  # orig. coord. + displacem. used to calc. R.
+        else:
+            with open(fr'intermediate_results\\static_wind\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
+                Nw_1_case = json.load(f)
+            # Displacements
+            g_node_coor_sw, p_node_coor_sw = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_g_node_coor']), np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_p_node_coor'])
+            D_loc_sw = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_D_loc'])
+            # Internal forces
+            R_loc_sw = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_R_loc'])
+        # Extracting alpha and axial forces
         alpha_sw = copy.deepcopy(D_loc_sw[:g_node_num, 3])  # local nodal torsional rotation.
-        # Internal forces
-        R_loc_sw = R_loc_func(D_glob_sw, g_node_coor, p_node_coor, alpha)  # orig. coord. + displacem. used to calc. R.
         girder_N_sw = copy.deepcopy(R_loc_sw[:g_elem_num, 0])  # local girder element axial force. Positive = compression!
         c_N_sw = copy.deepcopy(R_loc_sw[g_elem_num:, 0])  # local column element axial force Positive = compression!
         # Updating structure.
@@ -1134,6 +1149,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         c_N += copy.deepcopy(c_N_sw)
         alpha += copy.deepcopy(alpha_sw)
 
+    # todo: continue here Bernardo :)
     beta_bar, theta_bar = beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
 
     # Transformation matrices.
@@ -1537,12 +1553,13 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
             'damping_Tj':damping_Tj}
 
 def list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases, flutter_derivatives_type_cases, n_freq_cases, n_modes_cases,
-                          n_nodes_cases, f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases, f_array_type_cases, make_M_C_freq_dep_cases, dtype_in_response_spectra_cases):
+                          n_nodes_cases, f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases, f_array_type_cases, make_M_C_freq_dep_cases,
+                          dtype_in_response_spectra_cases, Nw_idxs, Nw_or_equiv_Hw_cases):
     # List of cases (parameter combinations) to be run:
-    list_of_cases = [(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,z) for a in aero_coef_method_cases for b in n_aero_coef_cases for c in include_SE_cases
+    list_of_cases = [(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,z) for a in aero_coef_method_cases for b in n_aero_coef_cases for c in include_SE_cases
                      for d in flutter_derivatives_type_cases for e in n_modes_cases for f in n_freq_cases
                      for g in n_nodes_cases for h in f_min_cases for i in f_max_cases for j in include_sw_cases for k in include_KG_cases for l in skew_approach_cases
-                     for m in f_array_type_cases for n in make_M_C_freq_dep_cases for o in dtype_in_response_spectra_cases for z in beta_DB_cases] # Note: new parameters should be added before beta_DB
+                     for m in f_array_type_cases for n in make_M_C_freq_dep_cases for o in dtype_in_response_spectra_cases for p in Nw_idxs for q in Nw_or_equiv_Hw_cases for z in beta_DB_cases] # Note: new parameters should be added before beta_DB
     list_of_cases = [list(case) for case in list_of_cases
                      if not (('3D' in case[3] and '2D' in case[11]) or ('2D' in case[3] and '3D' in case[11]) or (case[2]==False and case[3] in ['3D_Scanlan', '3D_Scanlan_confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_in_plane']))]
     # if skew_approach is '3D' only '3D' flutter_derivatives accepted. If SE=False, only one dummy FD case is accepted: '3D_full' or '2D_full'
@@ -1551,15 +1568,18 @@ def list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_
 def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type=2, include_modal_coupling=True, include_SE_in_modal=False):
     # Empty Dataframe to store results
     results_df = pd.DataFrame(list_of_cases)
-    results_df.columns = ['Method', 'n_aero_coef', 'SE', 'FD_type', 'n_modes', 'n_freq', 'g_node_num', 'f_min', 'f_max', 'SWind', 'KG', 'skew_approach', 'f_array_type', 'make_M_C_freq_dep', 'dtype_in_response_spectra', 'beta_DB']
+    results_df.columns = ['Method', 'n_aero_coef', 'SE', 'FD_type', 'n_modes', 'n_freq', 'g_node_num', 'f_min', 'f_max', 'SWind', 'KG', 'skew_approach', 'f_array_type', 'make_M_C_freq_dep',
+                          'dtype_in_response_spectra', 'Nw_idx', 'Nw_or_equiv_Hw', 'beta_DB']
     for i in range(0, 6):
         results_df['std_max_dof_' + str(i)] = None
 
     case_idx = -1  # index of the case
-    for aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach, f_array_type, make_M_C_freq_dep, dtype_in_response_spectra, beta_DB in list_of_cases:
+    for aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach, f_array_type, make_M_C_freq_dep, \
+        dtype_in_response_spectra, Nw_idx, Nw_or_equiv_Hw, beta_DB in list_of_cases:
         case_idx += 1  # starts at 0.
         buffeting_results = buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, skew_approach, include_SE, flutter_derivatives_type, n_modes, f_min, f_max, n_freq, g_node_coor,
-                                              p_node_coor, Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep, dtype_in_response_spectra)
+                                              p_node_coor, Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep,
+                                              dtype_in_response_spectra, Nw_idx, Nw_or_equiv_Hw)
         # Reading results
         std_delta_local = buffeting_results['std_delta_local']
         cospec_type = buffeting_results['cospec_type']

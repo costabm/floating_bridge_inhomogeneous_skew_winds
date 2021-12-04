@@ -1,5 +1,8 @@
 import copy
+import json
 import numpy as np
+import pandas as pd
+
 from simple_5km_bridge_geometry import p_node_idx
 from sympy import cos, sin, Matrix, diff, symbols, pi, lambdify
 
@@ -926,3 +929,15 @@ def discretize_S_delta_local_by_equal_energies(f_array, max_S_delta_local, n_fre
     return f_array[freq_indexes]
 
 
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, pd.DataFrame):
+            return obj.to_json()
+        return json.JSONEncoder.default(self, obj)
