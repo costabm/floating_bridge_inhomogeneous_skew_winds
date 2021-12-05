@@ -28,7 +28,7 @@ start_time = time.time()
 run_modal_analysis = False
 run_DL = False  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
-run_new_Nw_sw = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+run_new_Nw_sw = True # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
 
 run_modal_analysis_after_static_loads = False
 
@@ -180,9 +180,9 @@ if run_modal_analysis_after_static_loads:
     c_N_temp = copy.deepcopy(c_N)
     alpha_temp = copy.deepcopy(alpha)
     if run_sw_for_modal:
-        U_bar = U_bar_func(g_node_coor)
         # Displacements
-        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB=rad(100), theta_0=rad(0), aero_coef_method='2D_fit_cons',n_aero_coef=6,skew_approach='3D')
+        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, U_bar=U_bar_func(g_node_coor), beta_DB=rad(100), theta_0=rad(0), aero_coef_method='2D_fit_cons',
+                                                                     n_aero_coef=6, skew_approach='3D')
         D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
         alpha_sw = copy.deepcopy(D_loc_sw[:g_node_num, 3])  # Global nodal torsional rotation.
         # Internal forces
@@ -293,9 +293,10 @@ if run_new_Nw_sw:
     # Saving dict with all results. Add more features if needed (e.g. Ai, iLj)
     Nw_dict_all_results = {'Nw_g_node_coor':Nw_g_node_coor_all.tolist(), 'Nw_p_node_coor':Nw_p_node_coor_all.tolist(), 'Nw_D_glob':Nw_D_glob_all.tolist(), 'Nw_D_loc':Nw_D_loc_all.tolist(),
                            'Nw_R_loc':Nw_R_loc_all.tolist(), 'n_cases':Nw_all.n_Nw_cases, 'Nw_U_bar':Nw_all.U_bar.tolist(), 'Nw_beta_bar':Nw_all.beta_bar.tolist(), 'Nw_theta_bar':Nw_all.theta_bar.tolist(),
-                           'Nw_Ii':Nw_all.Ii.tolist(), 'Nw_S_a':Nw_all.S_a.tolist(), 'Nw_S_aa':Nw_all.S_aa.tolist(),
+                           'Nw_beta_0':Nw_all.beta_0.tolist(), 'Nw_theta_0':Nw_all.theta_0.tolist(), 'Nw_Ii':Nw_all.Ii.tolist(), # 'Nw_S_a':Nw_all.S_a.tolist(),  # 'Nw_S_aa':Nw_all.S_aa.tolist(),  # Only static wind!. S_aa is not included because it is way too large...
                            'Hw_g_node_coor':Hw_g_node_coor_all.tolist(), 'Hw_p_node_coor':Hw_p_node_coor_all.tolist(), 'Hw_D_glob':Hw_D_glob_all.tolist(), 'Hw_D_loc':Hw_D_loc_all.tolist(),
-                           'Hw_R_loc':Hw_R_loc_all.tolist(), 'Hw_U_bar':Nw_all.equiv_Hw_U_bar.tolist(), 'Hw_beta_bar':Nw_all.equiv_Hw_beta_bar.tolist(), 'Hw_theta_bar':Nw_all.equiv_Hw_theta_bar.tolist()}
+                           'Hw_R_loc':Hw_R_loc_all.tolist(), 'Hw_U_bar':Nw_all.equiv_Hw_U_bar.tolist(), 'Hw_beta_bar':Nw_all.equiv_Hw_beta_bar.tolist(), 'Hw_theta_bar':Nw_all.equiv_Hw_theta_bar.tolist(),
+                           'Hw_beta_0':Nw_all.equiv_Hw_beta_0.tolist(), 'Hw_theta_0':Nw_all.equiv_Hw_theta_0.tolist()}  # todo: define Hw_beta_0 and Hw_theta_0!
 
     # Storing each case in individual json files! If all cases were stored in one file, it would have over 1 Gb and buffeting.py would be too slow when opening it every time to only access 1 case
     for n in range(Nw_dict_all_results['n_cases']):   # Nw_dict_all_results['n_cases']):
@@ -373,14 +374,14 @@ make_M_C_freq_dep_cases = [False]  # include frequency-dependent added masses an
 aero_coef_method_cases = ['2D_fit_cons']  # method of interpolation & extrapolation. '2D_fit_free', '2D_fit_cons', 'cos_rule', '2D'
 skew_approach_cases = ['3D']  # '3D', '2D', '2D+1D', '2D_cos_law'
 flutter_derivatives_type_cases = ['3D_full']  # '3D_full', '3D_Scanlan', '3D_Scanlan confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_full','2D_in_plane'
-n_freq_cases = [16]  # Use 1024 with 'equal_width_bins' or 128 with 'equal_energy_bins'
+n_freq_cases = [128]  # Use 1024 with 'equal_width_bins' or 128 with 'equal_energy_bins'
 f_min_cases = [0.002]  # Hz. Use 0.002
 f_max_cases = [0.5]  # Hz. Use 0.5! important to not overstretch this parameter
 f_array_type_cases = ['equal_energy_bins']  # 'equal_width_bins', 'equal_energy_bins'
 # n_modes_cases = [(g_node_num+len(p_node_coor))*6]
 n_modes_cases = [100]
 n_nodes_cases = [len(g_node_coor)]
-Nw_idxs = np.arange(100)  # Use: [None] or np.arange(positive integer). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
+Nw_idxs = np.arange(20)  # Use: [None] or np.arange(positive integer). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_or_equiv_Hw_cases = ['Nw', 'Hw']  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
 beta_DB_cases = np.arange(rad(0), rad(359), rad(10000))  # wind (from) directions. Interval: [rad(0), rad(360)]
 
@@ -397,7 +398,6 @@ list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_
 parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal)
 # pr.disable()
 # pr.print_stats(sort='cumtime')
-
 
 ########################################################################################################################
 # Time domain buffeting analysis:

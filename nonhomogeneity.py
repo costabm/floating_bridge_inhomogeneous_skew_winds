@@ -256,6 +256,11 @@ def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
     return Nw_beta_bar, Nw_theta_bar
 
 
+
+
+
+
+
 class NwOneCase:
     """
     Non-homogeneous wind class. Gets the necessary information of one WRF case.
@@ -288,9 +293,6 @@ class NwOneCase:
             self.S_aa = None
             # Other
             self.create_new_Iu_all_dirs_database = True  # This needs to be run once
-            self.equiv_Hw_U_bar = None  # Equivalent Homogeneous mean wind speeds at all the girder nodes
-            self.equiv_Hw_beta_bar = None  # Equivalent Homogeneous beta bar
-            self.equiv_Hw_theta_bar = None  # Equivalent Homogeneous theta bar
 
     def set_df_WRF(self, U_tresh=12, tresh_requirement_type='any', sort_by='time'):
         """
@@ -574,6 +576,8 @@ class NwAllCases:
             self.S_aa = []
             # Other
             self.equiv_Hw_U_bar = []  # Equivalent Homogeneous mean wind speeds at all the girder nodes
+            self.equiv_Hw_beta_0 = []  # Equivalent Homogeneous beta 0
+            self.equiv_Hw_theta_0 = []  # Equivalent Homogeneous theta 0
             self.equiv_Hw_beta_bar = []  # Equivalent Homogeneous beta bar
             self.equiv_Hw_theta_bar = []  # Equivalent Homogeneous theta bar
 
@@ -662,6 +666,8 @@ class NwAllCases:
         Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad'))  # making the average of all betas along the bridge girder
         Hw_theta_0_all = np.zeros((n_Nw_cases, g_node_num))
         Hw_beta_bar_all, Hw_theta_bar_all = Nw_beta_and_theta_bar_func(g_node_coor, Hw_beta_0_all, Hw_theta_0_all, self.alpha)
+        self.equiv_Hw_beta_0 = Hw_beta_0_all
+        self.equiv_Hw_theta_0 = Hw_theta_0_all
         self.equiv_Hw_beta_bar = Hw_beta_bar_all
         self.equiv_Hw_theta_bar = Hw_theta_bar_all
 

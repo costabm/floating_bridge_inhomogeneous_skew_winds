@@ -36,7 +36,7 @@ def static_wind_from_U_beta_theta_bar(g_node_coor, p_node_coor, alpha, U_bar, be
     g_node_num = len(g_node_coor)
     p_node_num = len(p_node_coor)
     stiff_matrix = stiff_matrix_func(g_node_coor, p_node_coor, alpha)  # Units: (N)
-    Pb = Pb_func(g_node_coor, beta_bar, theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='ones')
+    Pb = Pb_func(g_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='ones')
     sw_vector = np.array([U_bar, np.zeros(len(U_bar)), np.zeros(len(U_bar))])  # instead of a=(u,v,w) a vector (U,0,0) is used.
     F_sw = np.einsum('ndi,in->nd', Pb, sw_vector) / 2  # Global buffeting force vector. See Paper from LD Zhu, eq. (24). Units: (N)
     F_sw_flat = np.ndarray.flatten(F_sw)  # flattening
@@ -49,12 +49,11 @@ def static_wind_from_U_beta_theta_bar(g_node_coor, p_node_coor, alpha, U_bar, be
     return g_node_coor_sw, p_node_coor_sw, D_glob_sw
 
 
-def static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach):
+def static_wind_func(g_node_coor, p_node_coor, alpha, U_bar, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach):
     """
     :return: New girder and gontoon node coordinates, as well as the displacements that led to them.
     """
     beta_0 = beta_0_func(beta_DB)
-    U_bar = U_bar_func(g_node_coor)
     beta_bar, theta_bar = beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
     g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_from_U_beta_theta_bar(g_node_coor, p_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach)
     return g_node_coor_sw, p_node_coor_sw, D_glob_sw

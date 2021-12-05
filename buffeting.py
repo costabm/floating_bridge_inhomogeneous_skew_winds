@@ -55,7 +55,7 @@ from transformations import normalize, g_node_L_3D_func, g_elem_nodes_func, T_Gs
     T_LrLs_func, T_LSOHLwbar_func, mat_Ls_node_Gs_node_all_func, rotate_v1_about_v2_func, vec_Ls_elem_Ls_node_girder_func, \
     T_LsLw_func, T_LsGs_full_2D_node_matrix_func, T_LsGs_6p_func, beta_within_minus_Pi_and_Pi_func, T_LnwLs_func, T_LwLnw_func,\
     M_3x3_to_M_6x6, T_LwGw_func, T_LsGw_func, T_GwLs_derivatives_func, T_LwLs_derivatives_func, theta_yz_bar_func, T_LnwLs_dtheta_yz_func,\
-    C_Ci_Ls_to_C_Ci_Lnw, discretize_S_delta_local_by_equal_energies
+    C_Ci_Ls_to_C_Ci_Lnw, discretize_S_delta_local_by_equal_energies, T_GsNw_func, T_xyzXYZ_ndarray
 from mass_and_stiffness_matrix import mass_matrix_func, stiff_matrix_func, geom_stiff_matrix_func
 from modal_analysis import modal_analysis_func, simplified_modal_analysis_func
 from damping_matrix import rayleigh_coefficients_func, rayleigh_damping_matrix_func, added_damping_global_matrix_func
@@ -154,18 +154,18 @@ def wind_vector_func(beta_0, theta_0):
 def beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha):
     """Returns the beta_bar and theta_bar at each node, as a mean of adjacent elements.
     Note that the mean of -179 deg and 178 deg should be 179.5 deg and not -0.5 deg. See: https://en.wikipedia.org/wiki/Mean_of_circular_quantities"""
+    n_g_nodes = len(g_node_coor)
     T_LsGs = T_LsGs_3g_func(g_node_coor, alpha)
     T_GsGw = T_GsGw_func(beta_0, theta_0)
     T_LsGw = np.einsum('nij,jk->nik', T_LsGs, T_GsGw)
-    U_bar = U_bar_func(g_node_coor, RP=RP)
-    U_Gw = np.array([U_bar, np.zeros(U_bar.shape), np.zeros(U_bar.shape)]).T  # todo: delete line above and make this line np.array([1,0,0])? should give same results...
+    U_Gw = np.array([np.ones(n_g_nodes), np.zeros(n_g_nodes), np.zeros(n_g_nodes)]).T
     U_Ls = np.einsum('nij,nj->ni', T_LsGw, U_Gw)
     Ux = U_Ls[:,0]
     Uy = U_Ls[:,1]
     Uz = U_Ls[:,2]
     Uxy = np.sqrt(Ux**2 + Uy**2)
-    beta_bar = np.array([-np.arccos(Uy[i]/Uxy[i]) * np.sign(Ux[i]) for i in range(len(g_node_coor))])
-    theta_bar = np.array([np.arcsin(Uz[i]/U_bar[i]) for i in range(len(g_node_coor))])
+    beta_bar = np.array([-np.arccos(Uy[i]/Uxy[i]) * np.sign(Ux[i]) for i in range(n_g_nodes)])
+    theta_bar = np.array([np.arcsin(Uz[i]/ 1) for i in range(n_g_nodes)])
     return beta_bar, theta_bar
 
 ########################################################################################################################
@@ -414,6 +414,99 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
 
 
 ########################################################################################################################
+# Inhomogeneous wind
+########################################################################################################################
+
+# Since it was a stupid idea to create a method _set_S_a(self, f_array), it is now duplicated here. (S_aa were too large to store for all Nw_cases...)
+def Nw_S_a(g_node_coor, f_array, Nw_U_bar, Nw_Ii):
+    """
+    f_array and n_hat need to be in Hertz, not radians!
+    """
+    Ai = Ai_func(cond_rand_A=False)
+    iLj = iLj_func(g_node_coor)
+    sigma_n = np.einsum('na,n->na', Nw_Ii, Nw_U_bar)  # standard deviation of the turbulence, for each node and each component.
+    # Autospectrum
+    n_hat = np.einsum('f,na,n->fna', f_array, iLj[:, :, 0], 1 / Nw_U_bar)
+    S_a = np.einsum('f,na,a,fna,fna->fna', 1/f_array, sigma_n ** 2, Ai, n_hat, 1 / (1 + 1.5 * np.einsum('a,fna->fna', Ai, n_hat)) ** (5 / 3))
+    return S_a
+
+def Nw_S_aa(g_node_coor, Nw_beta_0, Nw_theta_0, f_array, Nw_U_bar, Nw_Ii, cospec_type=2):
+    """
+    In Hertz. The input coordinates are in Global Structural Gs (even though Gw is calculated and used in this function)
+    """
+    S_a = Nw_S_a(g_node_coor, f_array, Nw_U_bar, Nw_Ii)
+    Cij = Cij_func(cond_rand_C=False)
+    n_g_nodes = len(g_node_coor)
+
+    # Difficult part. We need a cross-transformation matrix T_GsNw_avg, which is an array with shape (n_g_nodes, n_g_nodes, 3) where each (i,j) entry is the T_GsNw_avg, where Nw_avg is the avg. between Nw_i (at node i) and Nw_j (at node j)
+    T_GsNw = T_GsNw_func(Nw_beta_0, Nw_theta_0)  # shape (n_g_nodes,3,3)
+    Nw_Xu_Gs = np.einsum('nij,j->ni', T_GsNw, np.array([1, 0, 0]))  # Get all Nw Xu vectors. We will later average these.
+    Nw_Xu_Gs_avg_nonnorm = (Nw_Xu_Gs[:, None] + Nw_Xu_Gs) / 2  # shape (n_g_nodes, n_g_nodes, 3), so each entry m,n is an average of the Xu vector at node m and the Xu vector at node n
+    Nw_Xu_Gs_avg = Nw_Xu_Gs_avg_nonnorm / np.linalg.norm(Nw_Xu_Gs_avg_nonnorm, axis=2)[:, :, None]  # Normalized. shape (n_g_nodes, n_g_nodes, 3)
+    Z_Gs = np.array([0, 0, 1])
+    Nw_Yv_Gs_avg = np.cross(Z_Gs[None, None, :], Nw_Xu_Gs_avg)
+    Nw_Zw_Gs_avg = np.cross(Nw_Xu_Gs_avg, Nw_Yv_Gs_avg)
+    X_Gs = np.repeat(np.repeat(np.array([1, 0, 0])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
+    Y_Gs = np.repeat(np.repeat(np.array([0, 1, 0])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
+    Z_Gs = np.repeat(np.repeat(np.array([0, 0, 1])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
+    # T_GsNw_avg_WRONG = (T_GsNw[:, None] + T_GsNw) / 2
+    # T_GsNw_avg_RIGHT_SLOW_VERSION = np.array([[T_xyzXYZ(np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1]), Nw_Xu_Gs_avg[m,n], Nw_Yv_Gs_avg[m,n], Nw_Zw_Gs_avg[m,n]) for m in range(n_g_nodes)] for n in range(n_g_nodes)])
+    T_GsNw_avg = np.moveaxis(T_xyzXYZ_ndarray(x=X_Gs, y=Y_Gs, z=Z_Gs, X=Nw_Xu_Gs_avg, Y=Nw_Yv_Gs_avg, Z=Nw_Zw_Gs_avg), [0, 1], [-2, -1])
+    # # Benchmark: confirmation of T_GsNw_avg by an easy-step-by-step method
+    # X_Gs  = np.array([1, 0, 0])
+    # Y_Gs  = np.array([0, 1, 0])
+    # Z_Gs  = np.array([0, 0, 1])
+    # Xu_Nw = np.array([1, 0, 0])
+    # Yv_Nw = np.array([0, 1, 0])
+    # Zw_Nw = np.array([0, 0, 1])
+    # Nw_Xu_in_Gs = np.array([T_GsNw[i] @ Xu_Nw for i in range(n_g_nodes)])
+    # Nw_Yv_in_Gs = np.array([T_GsNw[i] @ Yv_Nw for i in range(n_g_nodes)])
+    # Nw_Zw_in_Gs = np.array([T_GsNw[i] @ Zw_Nw for i in range(n_g_nodes)])
+    # Nw_Xu_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
+    # Nw_Yv_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
+    # Nw_Zw_in_Gs_avg = np.zeros((n_g_nodes, n_g_nodes, 3))
+    # def cos(i,j):
+    #     return np.dot(i, j) / (np.linalg.norm(i) * np.linalg.norm(j))
+    # T_GsNw_avg_2 = np.zeros((n_g_nodes, n_g_nodes, 3, 3))
+    # for i in range(n_g_nodes):
+    #     for j in range(n_g_nodes):
+    #         Nw_Xu_in_Gs_avg[i,j] = (Nw_Xu_in_Gs[i] + Nw_Xu_in_Gs[j]) / 2  # attention: this produces non-normalized vectors
+    #         Nw_Yv_in_Gs_avg[i,j] = (Nw_Yv_in_Gs[i] + Nw_Yv_in_Gs[j]) / 2  # attention: this produces non-normalized vectors
+    #         Nw_Zw_in_Gs_avg[i,j] = (Nw_Zw_in_Gs[i] + Nw_Zw_in_Gs[j]) / 2  # attention: this produces non-normalized vectors
+    #         T_GsNw_avg_2[i,j] = np.array([[cos(X_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(X_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(X_Gs, Nw_Zw_in_Gs_avg[i,j])],
+    #                                       [cos(Y_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(Y_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(Y_Gs, Nw_Zw_in_Gs_avg[i,j])],
+    #                                       [cos(Z_Gs, Nw_Xu_in_Gs_avg[i,j]), cos(Z_Gs, Nw_Yv_in_Gs_avg[i,j]), cos(Z_Gs, Nw_Zw_in_Gs_avg[i,j])]])
+    # np.allclose(T_GsNw_avg, T_GsNw_avg_2)
+    # Calculating the distances between pairs of points, in the average Nw_avg systems, which are the average between the Nw of one point and the Nw of the other point
+    delta_xyz_Gs = g_node_coor[:,None] - g_node_coor  # Note that delta_xyz is a linear operation that could be itself transformed
+    delta_xyz_Nw = np.absolute(np.einsum('mni,mnij->mnj', delta_xyz_Gs, T_GsNw_avg))
+    # # SLOW confirmation version:
+    # delta_xyz_Nw_SLOW = np.zeros((n_g_nodes, n_g_nodes, 3))
+    # for m in range(n_g_nodes):
+    #     for n in range(n_g_nodes):
+    #         delta_xyz_Nw_SLOW[m,n] = np.absolute(g_node_coor[m] @ T_GsNw_avg[m,n] - g_node_coor[n] @ T_GsNw_avg[m,n])
+    Nw_U_bar_avg = (Nw_U_bar[:, None] + Nw_U_bar) / 2  # from shape (n_g_nodes) to shape (n_g_nodes,n_g_nodes)
+
+    if cospec_type == 1:  # Alternative 1: LD Zhu coherence and cross-spectrum. Developed in radians? So it is converted to Hertz in the end.
+        raise NotImplementedError
+    if cospec_type == 2:  # Coherence and cross-spectrum (adapted Davenport for 3D). Developed in Hertz!
+        f_hat_aa = np.einsum('f,mna->fmna', f_array,
+                             np.divide(np.sqrt((Cij[:, 0] * delta_xyz_Nw[:, :, 0, None]) ** 2 + (Cij[:, 1] * delta_xyz_Nw[:, :, 1, None]) ** 2 + (Cij[:, 2] * delta_xyz_Nw[:, :, 2, None]) ** 2),
+                                       Nw_U_bar_avg[:, :, None]))  # This is actually in omega units, not f_array, according to eq.(10.35b)! So: rad/s
+        f_hat = f_hat_aa  # this was confirmed to be correct with a separate 4 loop "f_hat_aa_confirm" and one Cij at the time
+        R_aa = np.e ** (-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)
+        S_aa = np.einsum('fmna,fmna->fmna', np.sqrt(np.einsum('fma,fna->fmna', S_a, S_a)), R_aa)  # S_a is only (3,) because assumed no cross-correlation between components
+    return S_aa
+
+
+
+
+
+
+
+
+
+########################################################################################################################
 # Aerodynamic properties and forces
 ########################################################################################################################
 def C_Ci_func(beta, theta, aero_coef_method, n_aero_coef, coor_system):
@@ -550,10 +643,9 @@ def Chi_Ci_func(coor_system='Gw'):
         Chi_Ci_aL = np.ones(6)
         return Chi_Ci_aD, Chi_Ci_aA, Chi_Ci_aL
 
-def A_bar_func(g_node_coor, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='Chi function'):
+def A_bar_func(U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='Chi function'):
     """ In Lw coordinates as in L.D. Zhu
     """
-    U_bar = U_bar_func(g_node_coor)
     # The following was numerically compared to be the same as the matrix by Zhu using the many s's and t's.
     if skew_approach == '3D':
         if Chi_Ci == 'Chi function':
@@ -621,11 +713,10 @@ def A_bar_func(g_node_coor, beta_bar, theta_bar, aero_coef_method, n_aero_coef, 
         A_LwGw = np.einsum('nij,njk->nik', T_LwLnw, A_LnwGw)
         return A_LwGw
 
-def flutter_derivatives_func(g_node_coor, beta_bar, theta_bar, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef):
+def flutter_derivatives_func(U_bar, beta_bar, theta_bar, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef):
     w_array = f_array * 2 * np.pi
     n_freq = len(f_array)
-    g_node_num = len(g_node_coor)
-    U_bar = U_bar_func(g_node_coor)
+    n_g_nodes = len(beta_bar)
     K_array = np.outer(w_array * CS_width, 1 / U_bar)  # Reduced frequency. (beginning of L.D.Zhu book page 4-23)
 
     b = beta_bar
@@ -674,12 +765,12 @@ def flutter_derivatives_func(g_node_coor, beta_bar, theta_bar, f_array, flutter_
                           -(sin2(b)/cos(t))*C_Cq_dbeta-(sin(b)*cos(b)*sin(t))*C_Cq_dtheta
                           -(sin(b)*cos(b))*C_Dp_dbeta - (cos2(b)*sin(t)*cos(t))*C_Dp_dtheta
                           +(sin(b)*cos(b)*np.tan(t))*C_Lh_dbeta + (cos2(b)*sin2(t))*C_Lh_dtheta)
-        P2_star = np.zeros((n_freq, g_node_num))
+        P2_star = np.zeros((n_freq, n_g_nodes))
         P3_star = -1/(K**2) * ((sin(b)*cos(b))*C_Cq_dtheta + (cos2(b)*cos(t))*C_Dp_dtheta
                                -(cos2(b)*sin(t))*C_Lh_dtheta)
         if flutter_derivatives_type == '3D_Scanlan_confirm':  # the following difference between Zhu and BC comes from Sympy
            P3_star = P3_star + (-C_Dp_dbeta*sin(t)*cos(b)*cos(t) - C_Cq*sin(t)*cos(b) - C_Cq_dbeta*sin(b)*sin(t) - C_Lh*sin(b) + C_Lh_dbeta*sin(t)**2*cos(b))*sin(b)/(K**2*cos(t))
-        P4_star = np.zeros((n_freq, g_node_num))
+        P4_star = np.zeros((n_freq, n_g_nodes))
         P5_star = -1/K * ((2*sin(b)*sin(t))*C_Cq + (cos(b)*sin(t)*cos(t))*C_Dp
                           -((2-cos2(t))*cos(b))*C_Lh + (sin(b)*cos(t))*C_Cq_dtheta   # in L.D. Zhu it is instead "(sin(b)*cos(b))*C_Cq_dtheta". This is a typo in his theory. I found it in Sympy and corrected here.
                           +(cos(b)*cos2(t))*C_Dp_dtheta - (cos(b)*sin(t)*cos(t))*C_Lh_dtheta)
@@ -687,82 +778,82 @@ def flutter_derivatives_func(g_node_coor, beta_bar, theta_bar, f_array, flutter_
             P5_star = -1/K * ((2*sin(b)*sin(t))*C_Cq + (cos(b)*sin(t)*cos(t))*C_Dp
                              -((2-cos2(t))*cos(b))*C_Lh + (sin(b)*cos(b))*C_Cq_dtheta   # in L.D. Zhu it is instead "(sin(b)*cos(b))*C_Cq_dtheta". This is a typo in his theory. I found it in Sympy and corrected here.
                              +(cos(b)*cos2(t))*C_Dp_dtheta - (cos(b)*sin(t)*cos(t))*C_Lh_dtheta)
-        P6_star = np.zeros((n_freq, g_node_num))
+        P6_star = np.zeros((n_freq, n_g_nodes))
         H1_star = -1/K * ((2-cos2(t))*C_Dp + cos2(t)*C_Lh_dtheta + (sin(t)*cos(t))*(C_Lh + C_Dp_dtheta))
-        H2_star = np.zeros((n_freq, g_node_num))
+        H2_star = np.zeros((n_freq, n_g_nodes))
         H3_star = -1/(K**2) * ((cos(b)*sin(t))*C_Dp_dtheta + (cos(b)*cos(t))*C_Lh_dtheta)
         if flutter_derivatives_type == '3D_Scanlan_confirm':  # the following difference between Zhu and BC comes from Sympy
             H3_star = H3_star + (-(C_Dp_dbeta*sin(t)**2/cos(t) - C_Cq + C_Lh_dbeta*sin(t))*sin(b)/K**2)
-        H4_star = np.zeros((n_freq, g_node_num))
+        H4_star = np.zeros((n_freq, n_g_nodes))
         H5_star = -1/K * ((cos(b)*sin(t)*cos(t))*C_Dp + (cos(b)*(1+cos2(t)))*C_Lh
                           -(sin(b)*np.tan(t))*C_Dp_dbeta - (cos(b)*sin2(t))*C_Dp_dtheta
                           -(sin(b))*C_Lh_dbeta - (cos(b)*sin(t)*cos(t))*C_Lh_dtheta)
-        H6_star = np.zeros((n_freq, g_node_num))
+        H6_star = np.zeros((n_freq, n_g_nodes))
         A1_star = -1/K*((2*cos(b)*sin(t))*C_Malpha - (sin(b)*sin(t)*cos(t))*C_Mgamma
                         +((2-cos2(t))*sin(b))*C_Mphi + (cos(b)*cos(t))*C_Malpha_dtheta
                         -(sin(b)*cos2(t))*C_Mgamma_dtheta + (sin(b)*sin(t)*cos(t))*C_Mphi_dtheta)
-        A2_star = np.zeros((n_freq, g_node_num))
+        A2_star = np.zeros((n_freq, n_g_nodes))
         # As by L.D. Zhu:
         A3_star = -1/(K**2) * ((cos2(b))*C_Malpha_dtheta - (sin(b)*cos(b)*cos(t))*C_Mgamma_dtheta
                                +(sin(b)*cos(b)*sin(t))*C_Mphi_dtheta)
         if flutter_derivatives_type == '3D_Scanlan_confirm':  # the following difference between Zhu and BC comes from Sympy
             A3_star = A3_star + (C_Mgamma_dbeta*sin(b)*sin(t)*cos(t) + C_Malpha*sin(b)*sin(t) - C_Malpha_dbeta*sin(t)*cos(b) - C_Mphi*cos(b) - C_Mphi_dbeta*sin(b)*sin(t)**2)*sin(b)/(K**2*cos(t))
-        A4_star = np.zeros((n_freq, g_node_num))
+        A4_star = np.zeros((n_freq, n_g_nodes))
         A5_star = - 1/K * (((sin2(b) + 2*cos2(b)*cos2(t))/cos(t))*C_Malpha
                            -(sin(b)*cos(b)*cos2(t))*C_Mgamma - (sin(b)*cos(b)*sin2(t)*np.tan(t))*C_Mphi
                            -(sin(b)*cos(b)/cos(t))*C_Malpha_dbeta - (cos2(b)*sin(t))*C_Malpha_dtheta
                            +(sin2(b))*C_Mgamma_dbeta + (sin(b)*cos(b)*sin(t)*cos(t))*C_Mgamma_dtheta
                            -(sin2(b)*np.tan(t))*C_Mphi_dbeta - (sin(b)*cos(b)*sin2(t)) * C_Mphi_dtheta)
-        A6_star = np.zeros((n_freq, g_node_num))
+        A6_star = np.zeros((n_freq, n_g_nodes))
 
     # DELETE? NOT IN USE
     if flutter_derivatives_type == 'QS non-skew':  # according to strommen. Independent of beta
         V_red = 1/K_array
         P1_star = -2*C_Dp * V_red
-        P2_star = np.zeros((n_freq, g_node_num))
+        P2_star = np.zeros((n_freq, n_g_nodes))
         P3_star = C_Dp_dtheta * V_red**2
-        P4_star = np.zeros((n_freq, g_node_num))
+        P4_star = np.zeros((n_freq, n_g_nodes))
         P5_star = (C_Lh-C_Dp_dtheta)* V_red
-        P6_star = np.zeros((n_freq, g_node_num))
+        P6_star = np.zeros((n_freq, n_g_nodes))
         H1_star = -(C_Lh_dtheta+C_Dp) * V_red
-        H2_star = np.zeros((n_freq, g_node_num))
+        H2_star = np.zeros((n_freq, n_g_nodes))
         H3_star = C_Lh_dtheta * V_red**2
-        H4_star = np.zeros((n_freq, g_node_num))
+        H4_star = np.zeros((n_freq, n_g_nodes))
         H5_star = -2*C_Lh * V_red
-        H6_star = np.zeros((n_freq, g_node_num))
+        H6_star = np.zeros((n_freq, n_g_nodes))
         A1_star = -C_Malpha_dtheta * V_red
-        A2_star = np.zeros((n_freq, g_node_num))
+        A2_star = np.zeros((n_freq, n_g_nodes))
         A3_star = C_Malpha_dtheta * V_red**2
-        A4_star = np.zeros((n_freq, g_node_num))
+        A4_star = np.zeros((n_freq, n_g_nodes))
         A5_star = -2*C_Malpha * V_red
-        A6_star = np.zeros((n_freq, g_node_num))
+        A6_star = np.zeros((n_freq, n_g_nodes))
 
     # DELETE? NOT IN USE
     if flutter_derivatives_type == 'QS cosine':  # according to L.D.Zhu.
         V_red = 1/K_array
         P1_star = -2*C_Dp * V_red
-        P2_star = np.zeros((n_freq, g_node_num)) / np.cos(b)  # these cosines might give problems for beta = 90
+        P2_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)  # these cosines might give problems for beta = 90
         P3_star = C_Dp_dtheta * V_red**2 / np.cos(b)
-        P4_star = np.zeros((n_freq, g_node_num))
+        P4_star = np.zeros((n_freq, n_g_nodes))
         P5_star = (C_Lh-C_Dp_dtheta)* V_red / np.cos(b)
-        P6_star = np.zeros((n_freq, g_node_num)) / np.cos(b)
+        P6_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)
         H1_star = -(C_Lh_dtheta+C_Dp) * V_red / np.cos(b)**2
-        H2_star = np.zeros((n_freq, g_node_num)) / np.cos(b)**2
+        H2_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)**2
         H3_star = C_Lh_dtheta * V_red**2 / np.cos(b)**2
-        H4_star = np.zeros((n_freq, g_node_num)) / np.cos(b)**2
+        H4_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)**2
         H5_star = -2*C_Lh * V_red / np.cos(b)
-        H6_star = np.zeros((n_freq, g_node_num)) / np.cos(b)
+        H6_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)
         A1_star = -C_Malpha_dtheta * V_red / np.cos(b)**2
-        A2_star = np.zeros((n_freq, g_node_num)) / np.cos(b)**2
+        A2_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)**2
         A3_star = C_Malpha_dtheta * V_red**2 / np.cos(b)**2
-        A4_star = np.zeros((n_freq, g_node_num)) / np.cos(b)**2
+        A4_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)**2
         A5_star = -2*C_Malpha * V_red / np.cos(b)
-        A6_star = np.zeros((n_freq, g_node_num)) / np.cos(b)
+        A6_star = np.zeros((n_freq, n_g_nodes)) / np.cos(b)
 
     return P1_star, P2_star, P3_star, P4_star, P5_star, P6_star, H1_star, H2_star, H3_star, \
            H4_star, H5_star, H6_star, A1_star, A2_star, A3_star, A4_star, A5_star, A6_star
 
-def Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef, skew_approach):
+def Kse_Cse_func(g_node_coor, U_bar, beta_bar, theta_bar, alpha, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef, skew_approach):
     """
     Linearized aerodynamic stiffness and damping matrices
     shape (n_freq,n_nodes,6,6)
@@ -772,7 +863,6 @@ def Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_deriv
     else:
         theta_bar_or_0 = copy.deepcopy(theta_bar)
     g_node_num = len(g_node_coor)
-    U_bar = U_bar_func(g_node_coor)
     g_node_L_3D = g_node_L_3D_func(g_node_coor)
     T_LsGs_6 = T_LsGs_6g_func(g_node_coor, alpha)
     T_GsLs_6 = np.transpose(T_LsGs_6, axes=(0, 2, 1))  # (transpose from (0,1,2) to (0,2,1))
@@ -784,8 +874,7 @@ def Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_deriv
             w_array = f_array * 2 * np.pi
             K_array = np.outer(w_array * CS_width, 1 / U_bar)  # Reduced frequency. (beginning of L.D.Zhu book page 4-23)
 
-            flutter_derivatives = flutter_derivatives_func(g_node_coor, beta_bar, theta_bar, f_array,
-                                                           flutter_derivatives_type, aero_coef_method, n_aero_coef)
+            flutter_derivatives = flutter_derivatives_func(U_bar, beta_bar, theta_bar, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef)
             P1_star, P2_star, P3_star, P4_star, P5_star, P6_star, H1_star, H2_star, H3_star, H4_star, H5_star, H6_star, \
             A1_star, A2_star, A3_star, A4_star, A5_star, A6_star = flutter_derivatives
             # Aerodynamic stiffness of Malpha, Dp, Lh (eq. 4-88):
@@ -830,7 +919,7 @@ def Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_deriv
                 [zeros,zeros,zeros,  CS_width**2 * C_Ci_Gw[4], CS_width**2 * C_Ci_Gw_dtheta[5], -CS_width**2 * (C_Ci_Gw_dbeta[5] + C_Ci_Gw[4] * np.sin(theta_bar)) / np.cos(theta_bar)]]), optimize=True)
             A_delta_Lw = T_LwGw_func(dim='6x6') @ A_delta_Gw @ np.transpose(T_LwGw_func(dim='6x6'))
             A_delta_d_LwGw = np.zeros((g_node_num,6,6))
-            A_delta_d_LwGw[:,:,:3] = - A_bar_func(g_node_coor, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach='3D', Chi_Ci='ones')
+            A_delta_d_LwGw[:,:,:3] = - A_bar_func(U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach='3D', Chi_Ci='ones')
             A_delta_Ls = T_LsLw_6 @ A_delta_Lw @ T_LwLs_6
             A_delta_d_Ls = T_LsLw_6 @ A_delta_d_LwGw @ np.transpose(T_LwGw_func(dim='6x6')) @ T_LwLs_6
             if flutter_derivatives_type == '3D_Scanlan':
@@ -867,7 +956,7 @@ def Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_deriv
             A_delta_Lnw[:,:,5] = np.zeros(6)  # erasing dependencies on delta_rL
         A_delta_Ls = T_LsLnw_6 @ A_delta_Lnw @ T_LnwLs_6
         A_delta_d_LwGw = np.zeros((g_node_num, 6, 6))
-        A_delta_d_LwGw[:, :, :3] = - A_bar_func(g_node_coor, beta_bar, theta_bar_or_0, aero_coef_method, n_aero_coef, skew_approach='2D', Chi_Ci='ones')
+        A_delta_d_LwGw[:, :, :3] = - A_bar_func(U_bar, beta_bar, theta_bar_or_0, aero_coef_method, n_aero_coef, skew_approach='2D', Chi_Ci='ones')
         A_delta_d_Ls = T_LsLw_6 @ A_delta_d_LwGw @ np.transpose(T_LwGw_func(dim='6x6')) @ T_LwLs_6
 
         if skew_approach == '2D+1D':
@@ -902,13 +991,13 @@ def Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_deriv
     Cse = np.repeat(Cse_QS[np.newaxis, :, :, :], len(f_array), axis=0)
     return Kse, Cse
 
-def Pb_func(g_node_coor, beta_bar, theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='Chi function'):
+def Pb_func(g_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci='Chi function'):
     """
     Coefficient matrix of nodal buffeting forces with respect to the global structural XYZ-system, to be multiplied with
     wind turbulences in the global wind coordinates XuYvZw. Note: Pb * a = (T_GsLw * A) * a = T_GsLw * (A * a), and
     A(beta,theta) is set up so that (A * a) goes from wind speeds in global wind Gw to forces in local wind Lw?
     """
-    A_bar = A_bar_func(g_node_coor, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci)
+    A_bar = A_bar_func(U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach, Chi_Ci)
     g_node_num = len(g_node_coor)
     g_node_L_3D = g_node_L_3D_func(g_node_coor)
 
@@ -925,12 +1014,11 @@ def Pb_func(g_node_coor, beta_bar, theta_bar, alpha, aero_coef_method, n_aero_co
     Pb = np.einsum('n,nvc->nvc', g_node_L_3D, T_GsLw_6 @ A_bar)
     return Pb
 
-def Fsw_func(g_node_coor, p_node_coor, alpha, beta_bar, theta_bar, aero_coef_method, n_aero_coef):
+def Fsw_func(g_node_coor, p_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef):
     """Get static wind forces in a full 1D global vector, shape:(dof_all)"""
     g_node_num = len(g_node_coor)
     p_node_num = len(p_node_coor)
 
-    U_bar = U_bar_func(g_node_coor)
     B_diag = np.diag((CS_width, CS_width, CS_width, CS_width ** 2, CS_width ** 2, CS_width ** 2))
     C_Ci_bar = C_Ci_func(beta_bar, theta_bar, aero_coef_method, n_aero_coef, coor_system='Lw')
     f_sw_Lwbar = 0.5 * rho * np.einsum('n,ij,jn->ni', U_bar ** 2, B_diag, C_Ci_bar)  # static wind only
@@ -958,7 +1046,7 @@ def Fad_or_Fb_all_t_Taylor_hyp_func(g_node_coor, p_node_coor, alpha, beta_0, the
     g_node_num = len(g_node_coor)
     p_node_num = len(p_node_coor)
     # Nodal buffeting force coefficients in global structural XYZ-system
-    Pb = Pb_func(g_node_coor, beta_bar, theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach)
+    Pb = Pb_func(g_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach)
     # Wind speeds and Buffeting forces
     a = np.array([windspeed_u, windspeed_v, windspeed_w])  # shape: (3, g_node_num, len(timepoints))
     Fb = np.einsum('ndi,int->tnd', Pb, a)  # (N). Global buffeting force vector. See Paper from LD Zhu, eq. (24)
@@ -967,7 +1055,7 @@ def Fad_or_Fb_all_t_Taylor_hyp_func(g_node_coor, p_node_coor, alpha, beta_0, the
     if which_to_get == 'Fb':
         return Fb
     elif which_to_get == 'Fad':
-        F_sw_Gs = Fsw_func(g_node_coor, p_node_coor, alpha, beta_bar, theta_bar, aero_coef_method, n_aero_coef)  # static wind forces
+        F_sw_Gs = Fsw_func(g_node_coor, p_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef)  # static wind forces
         Fad_Gs = Fb + F_sw_Gs[np.newaxis, :]  # buffeting only forces. New time dimension for static wind.
         return Fad_Gs
     else:
@@ -1026,7 +1114,7 @@ def Fad_or_Fb_all_t_C_Ci_NL_no_SE_func(g_node_coor, p_node_coor, alpha, beta_0, 
     if which_to_get == 'Fad':
         return F_ad_Gs
     elif which_to_get == 'Fb':
-        F_sw_Gs = Fsw_func(g_node_coor, p_node_coor, alpha, beta_bar, theta_bar, aero_coef_method, n_aero_coef)  # static wind forces
+        F_sw_Gs = Fsw_func(g_node_coor, p_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef)  # static wind forces
         Fb_Gs = F_ad_Gs - F_sw_Gs[np.newaxis,:]  # buffeting only forces. New time dimension for static wind.
         return Fb_Gs
     else:
@@ -1095,12 +1183,14 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
                       Nw_idx, Nw_or_equiv_Hw, generate_spectra_for_discretization=False):
 
     print(f'{Nw_or_equiv_Hw} case index: {Nw_idx}') if Nw_idx is not None else 'Running original homogeneous wind only.'
+    if Nw_idx is not None:  # Inomogeneous wind:
+        with open(fr'intermediate_results\\static_wind\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
+            Nw_1_case = json.load(f)
 
     print('beta_DB (deg) = '+str(np.round(deg(beta_DB), 1)))
     start_time_1 = time.time()
     g_node_num = len(g_node_coor)
     g_elem_num = g_node_num - 1
-    beta_0 = beta_0_func(beta_DB)
     if f_array_type == 'equal_width_bins':
         f_array = np.linspace(f_min, f_max, n_freq)
     elif f_array_type == 'equal_energy_bins':
@@ -1124,14 +1214,13 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     if include_sw:  # including static wind
         if Nw_idx is None:  # Homogeneous wind:
             from static_loads import static_wind_func, R_loc_func
+            U_bar = U_bar_func(g_node_coor)  # Homogeneous wind only depends on g_node_coor_z...
             # Displacements
-            g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach)
+            g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, U_bar, beta_DB, theta_0, aero_coef_method, n_aero_coef, skew_approach)
             D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
             # Internal forces
             R_loc_sw = R_loc_func(D_glob_sw, g_node_coor, p_node_coor, alpha)  # orig. coord. + displacem. used to calc. R.
-        else:
-            with open(fr'intermediate_results\\static_wind\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
-                Nw_1_case = json.load(f)
+        else:  # Inomogeneous wind:
             # Displacements
             g_node_coor_sw, p_node_coor_sw = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_g_node_coor']), np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_p_node_coor'])
             D_loc_sw = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_D_loc'])
@@ -1149,8 +1238,15 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         c_N += copy.deepcopy(c_N_sw)
         alpha += copy.deepcopy(alpha_sw)
 
-    # todo: continue here Bernardo :)
-    beta_bar, theta_bar = beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
+    # Getting the key mean wind features
+    if Nw_idx is None:
+        U_bar = U_bar_func(g_node_coor)
+        beta_0 = beta_0_func(beta_DB)
+        beta_bar, theta_bar = beta_and_theta_bar_func(g_node_coor, beta_0, theta_0, alpha)
+    else:
+        U_bar = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_U_bar'])
+        beta_0, theta_0 = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_beta_0']), np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_theta_0'])
+        beta_bar, theta_bar = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_beta_bar']), np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_theta_bar'])
 
     # Transformation matrices.
     T_LsGs_3 = T_LsGs_3g_func(g_node_coor, alpha)  # to be used for the bridge girder elements
@@ -1190,7 +1286,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         raise Exception('You cannot have include_SE_in_modal == True and include_SE == False')
 
     if include_SE:  # Gets matrices of Kse and Cse in physical space, with same size as g_node_num
-        Kse, Cse = Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef, skew_approach)
+        Kse, Cse = Kse_Cse_func(g_node_coor, U_bar, beta_bar, theta_bar, alpha, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef, skew_approach)
 
     if include_SE_in_modal:  # Calculates full matrices of Kse and Cse in physical space (including pontoon nodes)
         p_node_num = len(p_node_coor)
@@ -1286,9 +1382,18 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         # No matter the frequency-dependencies, the result will ALWAYS have shape 'wMN', due to the ellipsis: '...'. The intermediate shape is wM, before np.diag converts again to wMN
         H_tilde = np.linalg.inv(np.array([np.diag((np.einsum('...,M->...M', -w_array**2, np.diagonal(M_tilde,axis1=-2,axis2=-1)) + np.einsum('...,...M->...M', 1j*w_array, np.diagonal(C_tot_tilde,axis1=-2,axis2=-1)) + np.diagonal(K_tot_tilde,axis1=-2,axis2=-1))[f,:]) for f in range(n_freq)]))
 
-    Pb = Pb_func(g_node_coor, beta_bar, theta_bar, alpha, aero_coef_method, n_aero_coef, skew_approach)
+    Pb = Pb_func(g_node_coor, alpha, U_bar, beta_bar, theta_bar, aero_coef_method, n_aero_coef, skew_approach)
 
-    S_aa_hertz = S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2)
+    # Co-spectrum
+    if Nw_idx is None:
+        S_aa_hertz = S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2)
+    else:  # Inhomogeneous S_aa needs to be calculated in real time!! It is way too large to be stored for all Nw cases...
+        if Nw_or_equiv_Hw == 'Nw':
+            Nw_Ii = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_Ii'])
+        elif Nw_or_equiv_Hw == 'Hw':
+            Nw_Ii = Ii_func(g_node_coor, beta_DB, Ii_simplified)
+        S_aa_hertz = Nw_S_aa(g_node_coor, beta_0, theta_0, f_array, U_bar, Nw_Ii, cospec_type=2)
+
     S_aa_radians = S_aa_hertz / (2*np.pi)  # not intuitive! S(f)*delta_f = S(w)*delta_w. See eq. (2.68) from Strommen.
 
     # Buffeting cross-spectral loads and displacements. S_aa is collapsed from shape wmncc to wmnc since off-diagonals are 0 (cross-spectrum between turbulence components)
@@ -1926,7 +2031,7 @@ def buffeting_TD_func(aero_coef_method, skew_approach, n_aero_coef, include_SE, 
 
     if include_SE:
         f_array = np.array([0.001])  # fictitious. It will be cancelled out since the QS FD are not frequency dependent. This was confirmed.
-        Kse, Cse = Kse_Cse_func(g_node_coor, beta_bar, theta_bar, alpha, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef, skew_approach)
+        Kse, Cse = Kse_Cse_func(g_node_coor, U_bar, beta_bar, theta_bar, alpha, f_array, flutter_derivatives_type, aero_coef_method, n_aero_coef, skew_approach)
         Kse_0 = Kse[0]  # removing the frequency dimension
         Cse_0 = Cse[0]  # removing the frequency dimension
         Kse_full_mat_0 = np.zeros(((g_node_num + p_node_num) * 6, (g_node_num + p_node_num) * 6))
