@@ -1,7 +1,13 @@
+import json
 import numpy as np
+from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_s_3D_func
 import matplotlib.pyplot as plt
+import matplotlib
+from matplotlib import colors
+import copy
 import pandas as pd
 import os
+
 
 def rad(deg):
     return deg*np.pi/180
@@ -53,7 +59,7 @@ def response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_pol
     if n_results_TD > 0:  # if we have TD results
         list_of_cases_df_repeated = results_df.drop(
             ['old_indexes', 'beta_DB', 'std_max_dof_0', 'std_max_dof_1', 'std_max_dof_2', 'std_max_dof_3',
-             'std_max_dof_4', 'std_max_dof_5', 'std_std_max_dof_0', 'std_std_max_dof_1', 'std_std_max_dof_2',
+             'std_max_dof_4', 'std_max_dof_5', 'std_std_max_dof_0', 'std_std_max_dof_1', 'std_std_max_do    f_2',
              'std_std_max_dof_3', 'std_std_max_dof_4', 'std_std_max_dof_5'], axis=1)  # removing columns
     else:
         list_of_cases_df_repeated = results_df.drop(
@@ -340,17 +346,12 @@ def response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_pol
         table_max_diff_all_betas.to_csv(r'results\Table_of_the_maximum_difference_for_pairs_of_cases_' + strftime("%Y-%m-%d_%H-%M-%S", gmtime()) + '.csv')
 
 # response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'C_Ci_linearity', 'f_array_type', 'make_M_C_freq_dep', 'dtype_in_response_spectra', 'beta_DB'])
-response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'n_aero_coef', 'make_M_C_freq_dep', 'beta_DB'])
-
+# response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=True, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'n_aero_coef', 'make_M_C_freq_dep', 'beta_DB'])
 
 def plot_contourf_spectral_response(f_array, S_delta_local, g_node_coor, S_by_freq_unit='rad', zlims_bool=False, cbar_extend='min', filename='Contour_', idx_plot=[1,2,3]):
     """
     S_delta_local: shape(n_freq, n_nodes, n_dof)
     """
-    import matplotlib
-    from matplotlib import colors
-    from simple_5km_bridge_geometry import g_s_3D_func
-    import copy
     g_s_3D = g_s_3D_func(g_node_coor)
     x = np.round(g_s_3D)
     y = f_array
@@ -465,5 +466,131 @@ def time_domain_plots():
     Pxx_den = np.moveaxis(np.moveaxis(np.array(Pxx_den), 0, -1), 0,1)  # convert to shape(n_freq, n_nodes, n_dof)
     plot_contourf_spectral_response(f_array=f, S_delta_local=Pxx_den, g_node_coor=g_node_coor, S_by_freq_unit='Hz', zlims_bool=True, cbar_extend='both', filename='Contour_TD_', idx_plot=[1,2,3])
 # time_domain_plots()
+
+
+def Nw_sw_plot():
+    """Inhomogeneous static wind plots"""
+
+    n_g_nodes = len(g_node_coor)
+    n_p_nodes = len(p_node_coor)
+    g_s_3D = g_s_3D_func(g_node_coor)
+    x = np.round(g_s_3D)
+    # Getting the Nw wind properties into the same df
+    my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
+    n_Nw_sw_cases = len(os.listdir(my_Nw_path))
+    Nw_dict_all, Nw_D_loc, Hw_D_loc, Nw_U_bar_RMS, Hw_U_bar_RMS = [], [], [], [], []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(n_Nw_sw_cases):
+        Nw_path = os.path.join(my_Nw_path, f'Nw_dict_{i}.json')
+        with open(Nw_path, 'r') as f:
+            Nw_dict_all.append(json.load(f))
+            Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Nw_U_bar'])**2)))
+            Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Hw_U_bar'])**2)))
+            Nw_D_loc.append(np.array(Nw_dict_all[i]['Nw_D_loc']))
+            Hw_D_loc.append(np.array(Nw_dict_all[i]['Hw_D_loc']))
+    n_cases = len(Nw_dict_all)
+    for dof in [1,2,3]:
+        if dof >= 3:
+            func = deg
+        else:
+            def func(x): return x
+        ##################################
+        # LINE PLOTS
+        ##################################
+        str_dof = ["$\Delta_x$ $[m]$",
+                   "$\Delta_y$ $[m]$",
+                   "$\Delta_z$ $[m]$",
+                   "$\Delta_{rx}$ $[\degree]$",
+                   "$\Delta_{ry}$ $[\degree]$",
+                   "$\Delta_{rz}$ $[\degree]$"]
+        plt.figure(dpi=500)
+        plt.title(f'Static wind response ({n_cases} worst storms)')
+        for case in range(n_cases):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='orange', label=label1)
+            plt.plot(x, func(Hw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='blue', label=label2)
+        plt.plot(x, func(np.max(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (envelope)')
+        plt.plot(x, func(np.min(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3)
+        plt.plot(x, func(np.max(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (envelope)')
+        plt.plot(x, func(np.min(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3)
+        plt.xlabel('x [m]  (Position along the arc)')
+        plt.ylabel(str_dof[dof])
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_lines_inhomog_VS_homog_dof_{dof}.png')
+        plt.show()
+        ##################################
+        # SCATTER PLOTS
+        ##################################
+        str_dof = ["$|\Delta_x|_{max}$ $[m]$",
+                   "$|\Delta_y|_{max}$ $[m]$",
+                   "$|\Delta_z|_{max}$ $[m]$",
+                   "$|\Delta_{rx}|_{max}$ $[\degree]$",
+                   "$|\Delta_{ry}|_{max}$ $[\degree]$",
+                   "$|\Delta_{rz}|_{max}$ $[\degree]$"]
+        plt.figure(dpi=100)
+        plt.title(f'Static wind response ({n_cases} worst storms)')
+        for case in range(n_cases):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
+            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof]))), marker='x', s=10, alpha=0.7, c='orange', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof]))), marker='o', s=10, alpha=0.7, c='blue', label=label2)
+        plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+        plt.ylabel(str_dof[dof])
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_scatter_inhomog_VS_homog_dof_{dof}.png')
+        plt.show()
+Nw_sw_plot()
+
+def Nw_scatter_plots():
+    """Inhomogeneous wind buffeting plots"""
+    # Getting the FD results df file
+    my_result_path = os.path.join(os.getcwd(), r'results')
+    results_paths_FD = []
+    for path in os.listdir(my_result_path):
+        if path[:16] == "FD_std_delta_max":
+            results_paths_FD.append(path)
+    for obj in list(enumerate(results_paths_FD)): print(obj)  # print list of files for user to choose
+    file_idx = input('Select which file to plot:')
+    file_to_plot = os.path.join(my_result_path, results_paths_FD[int(file_idx)])
+    results_df = pd.read_csv(file_to_plot)
+    n_Nw_idxs = results_df['Nw_idx'].max() + 1  # to account for 0 idx
+    # Getting the Nw wind properties into the same df
+    my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
+    Nw_dict_all, Nw_U_bar_RMS, Hw_U_bar_RMS = [], [], []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(n_Nw_idxs):
+        Nw_path = os.path.join(my_Nw_path, f'Nw_dict_{i}.json')
+        with open(Nw_path, 'r') as f:
+            Nw_dict_all.append(json.load(f))
+            Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Nw_U_bar'])**2)))
+            Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Hw_U_bar'])**2)))
+    results_df['Nw_U_bar_RMS'] = results_df['Nw_idx'].map(dict((i,j) for i,j in enumerate(Nw_U_bar_RMS)))
+    results_df['Hw_U_bar_RMS'] = results_df['Nw_idx'].map(dict((i, j) for i, j in enumerate(Hw_U_bar_RMS)))
+    # Plotting
+    for dof in [1,2,3]:
+        str_dof = ["$\sigma_{x, max}$ $[m]$",
+                   "$\sigma_{y, max}$ $[m]$",
+                   "$\sigma_{z, max}$ $[m]$",
+                   "$\sigma_{rx, max}$ $[\degree]$",
+                   "$\sigma_{ry, max}$ $[\degree]$",
+                   "$\sigma_{rz, max}$ $[\degree]$"]
+        Nw_row_bools = results_df['Nw_or_equiv_Hw'] == 'Nw'
+        Hw_row_bools = results_df['Nw_or_equiv_Hw'] == 'Hw'
+        Nw_x, Hw_x = results_df[Nw_row_bools]['Nw_U_bar_RMS'], results_df[Hw_row_bools]['Hw_U_bar_RMS']
+        Nw_y, Hw_y = results_df[Nw_row_bools][f'std_max_dof_{dof}'], results_df[Hw_row_bools][f'std_max_dof_{dof}']
+        if dof >= 3:
+            Nw_y, Hw_y = deg(Nw_y), deg(Hw_y)
+        plt.figure(figsize=(5,5), dpi=300)
+        plt.title(f'Buffeting response ({n_Nw_idxs} worst storms)')
+        plt.scatter(Nw_x, Nw_y, marker='x', s=10, alpha=0.7, c='orange', label='Inhomogeneous')
+        plt.scatter(Hw_x, Hw_y, marker='o', s=10, alpha=0.7, c='blue', label='Homogeneous')
+        plt.ylabel(str_dof[dof])
+        plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(rf'results\buffeting_inhomog_VS_homog_dof_{dof}.png')
+        plt.show()
+Nw_scatter_plots()
 
 

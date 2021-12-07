@@ -28,7 +28,7 @@ start_time = time.time()
 run_modal_analysis = False
 run_DL = False  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
-run_new_Nw_sw = True # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+run_new_Nw_sw = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
 
 run_modal_analysis_after_static_loads = False
 
@@ -256,7 +256,7 @@ if run_modal_analysis_after_static_loads:
     plot_mode_shape_func(n_modes_plot = 10) if plot_mode_shape else None
 
 ########################################################################################################################
-# Separate nonhomogeneous static wind (Nw_sw) analysis. Note: buffeting has its own SW analysis.
+# Separate nonhomogeneous static wind (Nw_sw) analysis. This will store the results of the Nw_sw analysis into a folder, for efficiency! This folder is later accessed by buffeting.py
 ########################################################################################################################
 if run_new_Nw_sw:
     # Nw = NwOneCase()
@@ -268,13 +268,11 @@ if run_new_Nw_sw:
     # Nw.set_structure(g_node_coor, p_node_coor, alpha)
     # Nw.set_Nw_wind(df_WRF_idx='all', set_static_wind_only=True)
     # Nw.plot_U(df_WRF_idx=Nw.df_WRF_idx)
+    Nw_all = NwAllCases()
     sort_by = 'ws_max'
     n_Nw_cases = 'all'
-    Nw_all = NwAllCases()
-    Nw_all.set_df_WRF(sort_by=sort_by)
-    Nw_all.df_WRF
-    Nw_all.props_WRF
-    Nw_all.aux_WRF
+    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=15)
+
     Nw_all.set_structure(g_node_coor, p_node_coor, alpha)
     Nw_all.set_Nw_wind(n_Nw_cases=n_Nw_cases, force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, f_array='static_wind_only')
     Nw_all.set_equivalent_Hw_U_bar(force_Nw_U_bar_and_U_bar_to_have_same='energy')
@@ -315,7 +313,7 @@ if run_new_Nw_sw:
 
 
     # Plotting
-    for dof in [0,5]:
+    for dof in [0,1,2,5]:
         plt.figure(dpi=500)
         plt.title(f'Sort by "{sort_by}". DOF {dof}')
         for case in range(Nw_all.n_Nw_cases):
@@ -324,11 +322,9 @@ if run_new_Nw_sw:
         plt.plot(Nw_R6g_abs_max[:, dof], alpha=0.8, c='orange', lw=3, label=f'Inhomogeneous')
         plt.plot(Hw_R6g_abs_max[:, dof], alpha=0.8, c='blue', lw=3, label=f'Homogeneous')
         plt.legend(loc=9)
-        # plt.savefig(r'results\All_Nw_vs_Hw_cases_DOF_'+str(dof)+'.png')
+        plt.savefig(r'results\All_Nw_vs_Hw_cases_DOF_'+str(dof)+'.png')
         plt.show()
         # plt.close()
-
-
 
 
 
@@ -381,11 +377,13 @@ f_array_type_cases = ['equal_energy_bins']  # 'equal_width_bins', 'equal_energy_
 # n_modes_cases = [(g_node_num+len(p_node_coor))*6]
 n_modes_cases = [100]
 n_nodes_cases = [len(g_node_coor)]
-Nw_idxs = np.arange(20)  # Use: [None] or np.arange(positive integer). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
+Nw_idxs = np.arange(150)  # Use: [None] or np.arange(positive integer). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_or_equiv_Hw_cases = ['Nw', 'Hw']  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
 beta_DB_cases = np.arange(rad(0), rad(359), rad(10000))  # wind (from) directions. Interval: [rad(0), rad(360)]
 
 assert len(beta_DB_cases) == 1 if Nw_idxs is not [None] else ''
+n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind\\') if 'Nw_dict_' in fname])
+assert np.max(Nw_idxs) <= n_Nw_sw_cases, "Decrease the Nw_idxs! The static analysis"
 list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases,
                                       flutter_derivatives_type_cases, n_freq_cases, n_modes_cases, n_nodes_cases,
                                       f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases,

@@ -277,8 +277,6 @@ def Ii_func(g_node_coor, beta_DB, Ii_simplified):
             Iu[n] = 1 / np.log(g_node_coor_z[n]/0.01)  # Design basis rev 0, 2018, Chapter 2.2
         Iv = 0.84 * Iu  # Design basis rev 0, 2018, Chapter 2.2
         Iw = 0.60 * Iu  # Design basis rev 0, 2018, Chapter 2.2
-        print('Iu IS NOW: '+str(Iu[0])+' . Is this what you want?')
-
     #
     # else:
     #     if 150 <= beta_DB <= 210:
@@ -1181,7 +1179,7 @@ def Fad_one_t_C_Ci_NL_with_SE(g_node_coor, p_node_coor, alpha, beta_0, theta_0, 
 def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, skew_approach, include_SE, flutter_derivatives_type, n_modes, f_min, f_max, n_freq, g_node_coor, p_node_coor,
                       Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep, dtype_in_response_spectra,
                       Nw_idx, Nw_or_equiv_Hw, generate_spectra_for_discretization=False):
-
+    theta_0 = 0
     print(f'{Nw_or_equiv_Hw} case index: {Nw_idx}') if Nw_idx is not None else 'Running original homogeneous wind only.'
     if Nw_idx is not None:  # Inomogeneous wind:
         with open(fr'intermediate_results\\static_wind\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
@@ -1400,7 +1398,6 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     if loop_frequencies:  # Consumes less memory. Equally fast.
         Sb_FF = np.zeros((n_freq, g_node_num, g_node_num, 6, 6))
         Sb_FF_tilde = np.zeros((n_freq, n_modes, n_modes))
-
         S_etaeta = np.zeros((n_freq, n_modes, n_modes), dtype=dtype_in_response_spectra)
         S_deltadelta = np.zeros((n_freq, g_node_num, g_node_num, 6, 6), dtype=dtype_in_response_spectra)
         S_deltadelta_local = np.zeros((n_freq, g_node_num, g_node_num, 6, 6), dtype=dtype_in_response_spectra)
