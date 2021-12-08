@@ -545,6 +545,56 @@ Nw_sw_plot()
 
 def Nw_scatter_plots():
     """Inhomogeneous wind buffeting plots"""
+
+    n_g_nodes = len(g_node_coor)
+    n_p_nodes = len(p_node_coor)
+    g_s_3D = g_s_3D_func(g_node_coor)
+    x = np.round(g_s_3D)
+    # Getting the Nw wind properties into the same df
+    my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting')
+    n_Nw_sw_cases = len(os.listdir(my_Nw_path))
+    std_delta_local = []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(n_Nw_sw_cases):
+        Nw_path = os.path.join(my_Nw_path, f'Nw_buffeting_{i}.json')
+        with open(Nw_path, 'r') as f:
+            std_delta_local.append(json.load(f))
+
+    n_cases = len(std_delta_local)
+    for dof in [1,2,3]:
+        if dof >= 3:
+            func = deg
+        else:
+            def func(x): return x
+        ##################################
+        # LINE PLOTS
+        ##################################
+        str_dof = ["$\Delta_x$ $[m]$",
+                   "$\Delta_y$ $[m]$",
+                   "$\Delta_z$ $[m]$",
+                   "$\Delta_{rx}$ $[\degree]$",
+                   "$\Delta_{ry}$ $[\degree]$",
+                   "$\Delta_{rz}$ $[\degree]$"]
+        plt.figure(dpi=500)
+        plt.title(f'Static wind response ({n_cases} worst storms)')
+        for case in range(n_cases):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='orange', label=label1)
+            plt.plot(x, func(Hw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='blue', label=label2)
+        plt.plot(x, func(np.max(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (envelope)')
+        plt.plot(x, func(np.min(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3)
+        plt.plot(x, func(np.max(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (envelope)')
+        plt.plot(x, func(np.min(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3)
+        plt.xlabel('x [m]  (Position along the arc)')
+        plt.ylabel(str_dof[dof])
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_lines_inhomog_VS_homog_dof_{dof}.png')
+        plt.show()
+
+    ##################################
+    # SCATTER PLOTS
+    ##################################
     # Getting the FD results df file
     my_result_path = os.path.join(os.getcwd(), r'results')
     results_paths_FD = []

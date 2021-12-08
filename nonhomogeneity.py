@@ -256,11 +256,6 @@ def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
     return Nw_beta_bar, Nw_theta_bar
 
 
-
-
-
-
-
 class NwOneCase:
     """
     Non-homogeneous wind class. Gets the necessary information of one WRF case.

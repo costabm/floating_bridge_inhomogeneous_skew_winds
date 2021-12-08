@@ -326,7 +326,7 @@ if run_new_Nw_sw:
         plt.show()
         # plt.close()
 
-
+n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind\\') if 'Nw_dict_' in fname])
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ########################################################################################################################
@@ -377,12 +377,11 @@ f_array_type_cases = ['equal_energy_bins']  # 'equal_width_bins', 'equal_energy_
 # n_modes_cases = [(g_node_num+len(p_node_coor))*6]
 n_modes_cases = [100]
 n_nodes_cases = [len(g_node_coor)]
-Nw_idxs = np.arange(150)  # Use: [None] or np.arange(positive integer). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
+Nw_idxs = np.arange(n_Nw_sw_cases)  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_or_equiv_Hw_cases = ['Nw', 'Hw']  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
 beta_DB_cases = np.arange(rad(0), rad(359), rad(10000))  # wind (from) directions. Interval: [rad(0), rad(360)]
 
 assert len(beta_DB_cases) == 1 if Nw_idxs is not [None] else ''
-n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind\\') if 'Nw_dict_' in fname])
 assert np.max(Nw_idxs) <= n_Nw_sw_cases, "Decrease the Nw_idxs! The static analysis"
 list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases,
                                       flutter_derivatives_type_cases, n_freq_cases, n_modes_cases, n_nodes_cases,

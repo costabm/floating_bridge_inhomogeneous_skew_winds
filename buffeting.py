@@ -1668,12 +1668,18 @@ def list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_
     return list_of_cases
 
 def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type=2, include_modal_coupling=True, include_SE_in_modal=False):
+    n_g_nodes = len(g_node_coor)
     # Empty Dataframe to store results
-    results_df = pd.DataFrame(list_of_cases)
+    results_df             = pd.DataFrame(list_of_cases)
+    results_df_all_g_nodes = pd.DataFrame(list_of_cases)
     results_df.columns = ['Method', 'n_aero_coef', 'SE', 'FD_type', 'n_modes', 'n_freq', 'g_node_num', 'f_min', 'f_max', 'SWind', 'KG', 'skew_approach', 'f_array_type', 'make_M_C_freq_dep',
                           'dtype_in_response_spectra', 'Nw_idx', 'Nw_or_equiv_Hw', 'beta_DB']
+    results_df_all_g_nodes.columns = copy.deepcopy(results_df.columns)
+    # New Dataframe that instead stores the std of all nodes
     for i in range(0, 6):
         results_df['std_max_dof_' + str(i)] = None
+        for n in range(n_g_nodes):
+            results_df_all_g_nodes[f'g_node_{n}_std_dof_{i}'] = None
 
     case_idx = -1  # index of the case
     for aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach, f_array_type, make_M_C_freq_dep, \
@@ -1689,16 +1695,30 @@ def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_sim
         damping_Ti = buffeting_results['damping_Ti']
         damping_Tj = buffeting_results['damping_Tj']
         # Writing results
-        results_df.at[case_idx, 'cospec_type'] = cospec_type
-        results_df.at[case_idx, 'damping_ratio'] = damping_ratio
-        results_df.at[case_idx, 'damping_Ti'] = damping_Ti
-        results_df.at[case_idx, 'damping_Tj'] = damping_Tj
+        results_df.at[            case_idx, 'cospec_type'] = cospec_type
+        results_df.at[            case_idx, 'damping_ratio'] = damping_ratio
+        results_df.at[            case_idx, 'damping_Ti'] = damping_Ti
+        results_df.at[            case_idx, 'damping_Tj'] = damping_Tj
+        results_df_all_g_nodes.at[case_idx, 'cospec_type'] = cospec_type
+        results_df_all_g_nodes.at[case_idx, 'damping_ratio'] = damping_ratio
+        results_df_all_g_nodes.at[case_idx, 'damping_Ti'] = damping_Ti
+        results_df_all_g_nodes.at[case_idx, 'damping_Tj'] = damping_Tj
         for i in range(0,6):
             results_df.at[case_idx, 'std_max_dof_'+str(i)] = np.max(std_delta_local[i])
+            for n in range(n_g_nodes):
+                results_df_all_g_nodes.at[case_idx, f'g_node_{n}_std_dof_{i}'] = std_delta_local[i,n]
+
+        # Saving intermediate results (redundant) to avoid losing important data that took a long time to obtain
+        with open(rf'intermediate_results\\buffeting\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
+            json.dump(std_delta_local.T.tolist(), f, ensure_ascii=False, indent=4)
 
     # Exporting the results to a table
     from time import gmtime, strftime
     results_df.to_csv(r'results\FD_std_delta_max_'+strftime("%Y-%m-%d_%H-%M-%S", gmtime())+'.csv')
+    results_df_all_g_nodes.to_csv(r'results\FD_all_nodes_std_delta' + strftime("%Y-%m-%d_%H-%M-%S", gmtime()) + '.csv')
+
+
+
     return None
 
 ########################################################################################################################
