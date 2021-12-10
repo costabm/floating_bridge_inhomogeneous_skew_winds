@@ -97,10 +97,19 @@ def delta_array_func(array):
 # Functions dependant on wind direction and(or) node coordinates
 ########################################################################################################################
 def beta_0_func(beta_DB):
+    assert np.max(beta_DB) <= rad(360)
+    assert np.min(beta_DB) >= rad(0)
     beta_0 = rad(100) - beta_DB  # [rad]. Global XYZ mean yaw angle, where both bridge ends fall on X-axis. Convention used as in Fig.1 (of the mentioned paper). beta_DB = 100 <=> beta_0 = 0. beta_DB = 80 <=> beta_0 = 20 [deg].
     beta_0 = np.where(beta_0<=rad(-180), rad(180) - (rad(-180) - beta_0), beta_0)  # converting to interval [rad(-180),rad(180)]. Confirm with: print('beta_DB = ', round(deg(beta_DB)), ' beta_0 = ', round(deg(beta_0)))
     return beta_0
 
+def beta_DB_func(beta_0):
+    assert np.max(beta_0) <= rad(180)
+    assert np.min(beta_0) >= rad(-180)
+    beta_DB = rad(100) - beta_0
+    beta_DB = beta_within_minus_Pi_and_Pi_func(beta_DB)
+    beta_DB = np.where(beta_DB<0, rad(180) + (rad(180) - np.abs(beta_DB)), beta_DB)
+    return beta_DB
 
 def U_bar_func(g_node_coor, RP=RP):
     """ 10min mean wind """  #

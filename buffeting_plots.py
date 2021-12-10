@@ -1,11 +1,15 @@
 import json
 import numpy as np
+from buffeting import beta_DB_func
+from create_minigrid_data_from_raw_WRF_500_data import lat_lon_aspect_ratio, bridge_WRF_nodes_coor_func
+from nonhomogeneity import NwOneCase, NwAllCases, equivalent_Hw_beta_0_all
 from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_s_3D_func
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib import colors
 import copy
 import pandas as pd
+import sympy
 import os
 
 
@@ -468,9 +472,12 @@ def time_domain_plots():
 # time_domain_plots()
 
 
-def Nw_sw_plot():
+def Nw_plots():
     """Inhomogeneous static wind plots"""
 
+    ######################################################################################################
+    # STATIC WIND
+    ######################################################################################################
     n_g_nodes = len(g_node_coor)
     n_p_nodes = len(p_node_coor)
     g_s_3D = g_s_3D_func(g_node_coor)
@@ -478,21 +485,28 @@ def Nw_sw_plot():
     # Getting the Nw wind properties into the same df
     my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
     n_Nw_sw_cases = len(os.listdir(my_Nw_path))
-    Nw_dict_all, Nw_D_loc, Hw_D_loc, Nw_U_bar_RMS, Hw_U_bar_RMS = [], [], [], [], []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    Nw_dict_all, Nw_D_loc, Hw_D_loc, Nw_U_bar_RMS, Nw_U_bar, Hw_U_bar, Hw_U_bar_RMS, Nw_beta_0,  Hw_beta_0 = [],[],[],[],[],[],[],[],[]  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
     for i in range(n_Nw_sw_cases):
         Nw_path = os.path.join(my_Nw_path, f'Nw_dict_{i}.json')
         with open(Nw_path, 'r') as f:
             Nw_dict_all.append(json.load(f))
+            Nw_U_bar.append(np.array(Nw_dict_all[i]['Nw_U_bar']))
+            Hw_U_bar.append(np.array(Nw_dict_all[i]['Hw_U_bar']))
             Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Nw_U_bar'])**2)))
             Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Hw_U_bar'])**2)))
+            Nw_beta_0.append(np.array(Nw_dict_all[i]['Nw_beta_0']))
+            Hw_beta_0.append(np.array(Nw_dict_all[i]['Hw_beta_0']))
             Nw_D_loc.append(np.array(Nw_dict_all[i]['Nw_D_loc']))
             Hw_D_loc.append(np.array(Nw_dict_all[i]['Hw_D_loc']))
-    n_cases = len(Nw_dict_all)
-    for dof in [1,2,3]:
+
+    def func(x, dof):
+        """converts results in radians to degrees, if dof is an angle"""
         if dof >= 3:
-            func = deg
+            return deg(x)
         else:
-            def func(x): return x
+            return x
+
+    for dof in [1,2,3]:
         ##################################
         # LINE PLOTS
         ##################################
@@ -502,22 +516,22 @@ def Nw_sw_plot():
                    "$\Delta_{rx}$ $[\degree]$",
                    "$\Delta_{ry}$ $[\degree]$",
                    "$\Delta_{rz}$ $[\degree]$"]
-        plt.figure(dpi=500)
-        plt.title(f'Static wind response ({n_cases} worst storms)')
-        for case in range(n_cases):
+        plt.figure(dpi=400)
+        plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
+        for case in range(n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
-            plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='orange', label=label1)
-            plt.plot(x, func(Hw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='blue', label=label2)
-        plt.plot(x, func(np.max(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (envelope)')
-        plt.plot(x, func(np.min(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3)
-        plt.plot(x, func(np.max(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (envelope)')
-        plt.plot(x, func(np.min(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3)
+            plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label1)
+            plt.plot(x, func(Hw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='blue', label=label2)
+        plt.plot(x, func(np.max(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (envelope)')
+        plt.plot(x, func(np.min(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='orange', lw=3)
+        plt.plot(x, func(np.max(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (envelope)')
+        plt.plot(x, func(np.min(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3)
         plt.xlabel('x [m]  (Position along the arc)')
         plt.ylabel(str_dof[dof])
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\sw_lines_inhomog_VS_homog_dof_{dof}.png')
+        plt.savefig(rf'results\sw_lines_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
         ##################################
         # SCATTER PLOTS
@@ -528,119 +542,279 @@ def Nw_sw_plot():
                    "$|\Delta_{rx}|_{max}$ $[\degree]$",
                    "$|\Delta_{ry}|_{max}$ $[\degree]$",
                    "$|\Delta_{rz}|_{max}$ $[\degree]$"]
-        plt.figure(dpi=100)
-        plt.title(f'Static wind response ({n_cases} worst storms)')
-        for case in range(n_cases):
+        plt.figure(dpi=400)
+        plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
+        for case in range(n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
-            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof]))), marker='x', s=10, alpha=0.7, c='orange', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof]))), marker='o', s=10, alpha=0.7, c='blue', label=label2)
+            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker='x', s=10, alpha=0.7, c='orange', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=10, alpha=0.7, c='blue', label=label2)
         plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
         plt.ylabel(str_dof[dof])
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\sw_scatter_inhomog_VS_homog_dof_{dof}.png')
+        plt.savefig(rf'results\sw_scatt_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
-Nw_sw_plot()
 
-def Nw_scatter_plots():
-    """Inhomogeneous wind buffeting plots"""
-
-    n_g_nodes = len(g_node_coor)
-    n_p_nodes = len(p_node_coor)
-    g_s_3D = g_s_3D_func(g_node_coor)
-    x = np.round(g_s_3D)
+    ######################################################################################################
+    # BUFFETING
+    ######################################################################################################
     # Getting the Nw wind properties into the same df
-    my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting')
-    n_Nw_sw_cases = len(os.listdir(my_Nw_path))
-    std_delta_local = []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
-    for i in range(n_Nw_sw_cases):
-        Nw_path = os.path.join(my_Nw_path, f'Nw_buffeting_{i}.json')
+    my_Nw_buf_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting')
+    n_Nw_buf_cases = np.max([int(''.join(i for i in f if i.isdigit())) for f in os.listdir(my_Nw_buf_path)])
+    std_delta_local = {'Nw':np.nan*np.zeros((n_Nw_buf_cases, n_g_nodes, 6)),
+                       'Hw':np.nan*np.zeros((n_Nw_buf_cases, n_g_nodes, 6)),}  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(n_Nw_buf_cases):
+        Nw_path = os.path.join(my_Nw_buf_path, f'Nw_buffeting_{i}.json')
+        Hw_path = os.path.join(my_Nw_buf_path, f'Hw_buffeting_{i}.json')
         with open(Nw_path, 'r') as f:
-            std_delta_local.append(json.load(f))
-
-    n_cases = len(std_delta_local)
+            std_delta_local['Nw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+        with open(Hw_path, 'r') as f:
+            std_delta_local['Hw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
     for dof in [1,2,3]:
-        if dof >= 3:
-            func = deg
-        else:
-            def func(x): return x
         ##################################
         # LINE PLOTS
         ##################################
-        str_dof = ["$\Delta_x$ $[m]$",
-                   "$\Delta_y$ $[m]$",
-                   "$\Delta_z$ $[m]$",
-                   "$\Delta_{rx}$ $[\degree]$",
-                   "$\Delta_{ry}$ $[\degree]$",
-                   "$\Delta_{rz}$ $[\degree]$"]
-        plt.figure(dpi=500)
-        plt.title(f'Static wind response ({n_cases} worst storms)')
-        for case in range(n_cases):
+        str_dof = ["$\sigma_x$ $[m]$",
+                   "$\sigma_y$ $[m]$",
+                   "$\sigma_z$ $[m]$",
+                   "$\sigma_{rx}$ $[\degree]$",
+                   "$\sigma_{ry}$ $[\degree]$",
+                   "$\sigma_{rz}$ $[\degree]$"]
+        plt.figure(dpi=400)
+        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
+        for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
-            plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='orange', label=label1)
-            plt.plot(x, func(Hw_D_loc[case][:n_g_nodes, dof]), lw=1.2, alpha=0.25, c='blue', label=label2)
-        plt.plot(x, func(np.max(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (envelope)')
-        plt.plot(x, func(np.min(np.array([Nw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='orange', lw=3)
-        plt.plot(x, func(np.max(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (envelope)')
-        plt.plot(x, func(np.min(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_cases)]), axis=0)), alpha=0.7, c='blue', lw=3)
+            plt.plot(x, func(std_delta_local['Nw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label1)
+            plt.plot(x, func(std_delta_local['Hw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='blue', label=label2)
+        plt.plot(x, func(np.max(np.array([std_delta_local['Nw'][case,:, dof] for case in range(n_Nw_buf_cases)]), axis=0), dof), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (max.)')
+        plt.plot(x, func(np.max(np.array([std_delta_local['Hw'][case,:, dof] for case in range(n_Nw_buf_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (max.)')
         plt.xlabel('x [m]  (Position along the arc)')
         plt.ylabel(str_dof[dof])
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\sw_lines_inhomog_VS_homog_dof_{dof}.png')
+        plt.savefig(rf'results\buf_lines_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
-
-    ##################################
-    # SCATTER PLOTS
-    ##################################
-    # Getting the FD results df file
-    my_result_path = os.path.join(os.getcwd(), r'results')
-    results_paths_FD = []
-    for path in os.listdir(my_result_path):
-        if path[:16] == "FD_std_delta_max":
-            results_paths_FD.append(path)
-    for obj in list(enumerate(results_paths_FD)): print(obj)  # print list of files for user to choose
-    file_idx = input('Select which file to plot:')
-    file_to_plot = os.path.join(my_result_path, results_paths_FD[int(file_idx)])
-    results_df = pd.read_csv(file_to_plot)
-    n_Nw_idxs = results_df['Nw_idx'].max() + 1  # to account for 0 idx
-    # Getting the Nw wind properties into the same df
-    my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
-    Nw_dict_all, Nw_U_bar_RMS, Hw_U_bar_RMS = [], [], []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
-    for i in range(n_Nw_idxs):
-        Nw_path = os.path.join(my_Nw_path, f'Nw_dict_{i}.json')
-        with open(Nw_path, 'r') as f:
-            Nw_dict_all.append(json.load(f))
-            Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Nw_U_bar'])**2)))
-            Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Hw_U_bar'])**2)))
-    results_df['Nw_U_bar_RMS'] = results_df['Nw_idx'].map(dict((i,j) for i,j in enumerate(Nw_U_bar_RMS)))
-    results_df['Hw_U_bar_RMS'] = results_df['Nw_idx'].map(dict((i, j) for i, j in enumerate(Hw_U_bar_RMS)))
-    # Plotting
-    for dof in [1,2,3]:
+        ##################################
+        # SCATTER PLOTS (from intermediate results)
+        ##################################
         str_dof = ["$\sigma_{x, max}$ $[m]$",
                    "$\sigma_{y, max}$ $[m]$",
                    "$\sigma_{z, max}$ $[m]$",
                    "$\sigma_{rx, max}$ $[\degree]$",
                    "$\sigma_{ry, max}$ $[\degree]$",
                    "$\sigma_{rz, max}$ $[\degree]$"]
-        Nw_row_bools = results_df['Nw_or_equiv_Hw'] == 'Nw'
-        Hw_row_bools = results_df['Nw_or_equiv_Hw'] == 'Hw'
-        Nw_x, Hw_x = results_df[Nw_row_bools]['Nw_U_bar_RMS'], results_df[Hw_row_bools]['Hw_U_bar_RMS']
-        Nw_y, Hw_y = results_df[Nw_row_bools][f'std_max_dof_{dof}'], results_df[Hw_row_bools][f'std_max_dof_{dof}']
-        if dof >= 3:
-            Nw_y, Hw_y = deg(Nw_y), deg(Hw_y)
-        plt.figure(figsize=(5,5), dpi=300)
-        plt.title(f'Buffeting response ({n_Nw_idxs} worst storms)')
-        plt.scatter(Nw_x, Nw_y, marker='x', s=10, alpha=0.7, c='orange', label='Inhomogeneous')
-        plt.scatter(Hw_x, Hw_y, marker='o', s=10, alpha=0.7, c='blue', label='Homogeneous')
-        plt.ylabel(str_dof[dof])
+        plt.figure(dpi=400)
+        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
+        for case in range(n_Nw_buf_cases):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker='x', s=10, alpha=0.7, c='orange', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=10, alpha=0.7, c='blue', label=label2)
         plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
-        plt.legend()
+        plt.ylabel(str_dof[dof])
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\buffeting_inhomog_VS_homog_dof_{dof}.png')
+        plt.savefig(rf'results\buf_scatt_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
-Nw_scatter_plots()
+
+    ######################################################################################################
+    # STATIC WIND + BUFFETING
+    ######################################################################################################
+    kp = 3.5  # peak factor
+
+    Nw_sw_plus_buf =  np.array([np.array([func(Nw_D_loc[case][:n_g_nodes, dof], dof) + kp * func(std_delta_local['Nw'][case, :, dof], dof) for dof in range(6)]).T for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases))]) # shape (n_cases, n_g_nodes, n_dof)
+    Nw_sw_minus_buf = np.array([np.array([func(Nw_D_loc[case][:n_g_nodes, dof], dof) - kp * func(std_delta_local['Nw'][case, :, dof], dof) for dof in range(6)]).T for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases))]) # shape (n_cases, n_g_nodes, n_dof)
+    Hw_sw_plus_buf =  np.array([np.array([func(Hw_D_loc[case][:n_g_nodes, dof], dof) + kp * func(std_delta_local['Hw'][case, :, dof], dof) for dof in range(6)]).T for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases))]) # shape (n_cases, n_g_nodes, n_dof)
+    Hw_sw_minus_buf = np.array([np.array([func(Hw_D_loc[case][:n_g_nodes, dof], dof) - kp * func(std_delta_local['Hw'][case, :, dof], dof) for dof in range(6)]).T for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases))]) # shape (n_cases, n_g_nodes, n_dof)
+    Nw_sw_plus_buf_absmax = np.max(np.max(np.array([np.abs(Nw_sw_plus_buf), np.abs(Nw_sw_minus_buf)]), axis=0), axis=1)  # Final shape (n_cases, n_dof). First max is along both arrays, second max is along n_g_nodes
+    Hw_sw_plus_buf_absmax = np.max(np.max(np.array([np.abs(Hw_sw_plus_buf), np.abs(Hw_sw_minus_buf)]), axis=0), axis=1)  # Final shape (n_cases, n_dof). First max is along both arrays, second max is along n_g_nodes
+
+    for dof in [1, 2, 3]:
+        ##################################
+        # LINE PLOTS
+        ##################################
+        str_dof = [r"$\Delta_x\/\pm\/k_p\times\sigma_x $ $[m]$",
+                   r"$\Delta_y\/\pm\/k_p\times\sigma_y $ $[m]$",
+                   r"$\Delta_z\/\pm\/k_p\times\sigma_z $ $[m]$",
+                   r"$\Delta_{rx}\/\pm\/k_p\times\sigma_{rx} $ $[\degree]$",
+                   r"$\Delta_{ry}\/\pm\/k_p\times\sigma_{ry} $ $[\degree]$",
+                   r"$\Delta_{rz}\/\pm\/k_p\times\sigma_{rz} $ $[\degree]$"]
+        plt.figure(dpi=400)
+        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
+
+        for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            plt.plot(x,  Nw_sw_plus_buf[case, :, dof], lw=1.2, alpha=0.25, c='orange', label=label1)
+            plt.plot(x, Nw_sw_minus_buf[case, :, dof], lw=1.2, alpha=0.25, c='orange')
+            plt.plot(x,  Hw_sw_plus_buf[case, :, dof], lw=1.2, alpha=0.25, c='blue', label=label2)
+            plt.plot(x, Hw_sw_minus_buf[case, :, dof], lw=1.2, alpha=0.25, c='blue')
+        plt.plot(x, np.max(Nw_sw_plus_buf[:,:,dof] , axis=0), alpha=0.7, c='orange', lw=3, label=f'Inhomogeneous (envelope)')
+        plt.plot(x, np.min(Nw_sw_minus_buf[:,:,dof], axis=0), alpha=0.7, c='orange', lw=3)
+        plt.plot(x, np.max(Hw_sw_plus_buf[:,:,dof] , axis=0), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (envelope)')
+        plt.plot(x, np.min(Hw_sw_minus_buf[:,:,dof], axis=0), alpha=0.7, c='blue', lw=3)
+        plt.xlabel('x [m]  (Position along the arc)')
+        plt.ylabel(str_dof[dof])
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_buf_lines_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ##################################
+        # SCATTER PLOTS (from intermediate results)
+        ##################################
+        str_dof = [r"$|\Delta_x\/\pm\/k_p\times\sigma_x|_{max} $ $[m]$",
+                   r"$|\Delta_y\/\pm\/k_p\times\sigma_y|_{max} $ $[m]$",
+                   r"$|\Delta_z\/\pm\/k_p\times\sigma_z|_{max} $ $[m]$",
+                   r"$|\Delta_{rx}\/\pm\/k_p\times\sigma_{rx}|_{max} $ $[\degree]$",
+                   r"$|\Delta_{ry}\/\pm\/k_p\times\sigma_{ry}|_{max} $ $[\degree]$",
+                   r"$|\Delta_{rz}\/\pm\/k_p\times\sigma_{rz}|_{max} $ $[\degree]$"]
+        plt.figure(dpi=400)
+        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
+        for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            plt.scatter(Nw_U_bar_RMS[case], Nw_sw_plus_buf_absmax[case][dof], marker='x', s=10, alpha=0.7, c='orange', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], Hw_sw_plus_buf_absmax[case][dof], marker='o', s=10, alpha=0.7, c='blue', label=label2)
+        plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+        plt.ylabel(str_dof[dof])
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_buf_scatt_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+
+    ######################################################################################################
+    # SELECTED WIND PLOTS, WITH MOST IMPACT ON RESPONSE
+    ######################################################################################################
+    # WIND QUIVER PLOTS (U AND BETA DISTRIBUTIONS ALONG THE FJORD)
+    ######################################################################################################
+    # Summarizing the important quantities
+    Nw_sw_maxs = np.array([[func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof) for dof in range(6)] for case in range(n_Nw_sw_cases)])  # shape (n_cases, n_dof)
+    Hw_sw_maxs = np.array([[func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof) for dof in range(6)] for case in range(n_Nw_sw_cases)])  # shape (n_cases, n_dof)
+    Nw_buf_maxs = np.array([[func(np.max(np.abs(std_delta_local['Nw'][case, :, dof])), dof) for dof in range(6)] for case in range(n_Nw_buf_cases)])  # shape (n_cases, n_dof)
+    Hw_buf_maxs = np.array([[func(np.max(np.abs(std_delta_local['Hw'][case, :, dof])), dof) for dof in range(6)] for case in range(n_Nw_buf_cases)])  # shape (n_cases, n_dof)
+    Nw_sw_plus_buf_absmax = Nw_sw_plus_buf_absmax
+    Hw_sw_plus_buf_absmax = Hw_sw_plus_buf_absmax
+    # Getting the indexes of the sorted data by response magnitude, in descending order, separately for each dof
+    Nw_sw_maxs_argsorts = np.array([Nw_sw_maxs[:,dof].argsort()[::-1] for dof in range(6)]).T
+    Hw_sw_maxs_argsorts = np.array([Hw_sw_maxs[:,dof].argsort()[::-1] for dof in range(6)]).T
+    ######################################################################################################
+
+    Nw_U_bar = np.array(Nw_U_bar)
+    Hw_U_bar = np.array(Hw_U_bar)
+    Nw_beta_DB = beta_DB_func(np.array(Nw_beta_0))
+    Hw_beta_DB = beta_DB_func(np.array(Hw_beta_0))
+    lats_bridge, lons_bridge = bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes=n_g_nodes).T
+
+    ordinal = lambda n: "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])  # just a function to convert int to an ordinal string. e.g. 1->'1st'
+    def interpolate_from_n_nodes_to_nearest_n_nodes_plotted(arr_to_interp, n_plot_nodes):
+        """Example: from U_bar with size (n_g_nodes), it returns U_bar with size (n_nodes_plotted). It selects equally spaced indexes of arr_to_interp"""
+        n_arr_nodes = len(arr_to_interp)
+        n_arr_elems = n_arr_nodes - 1
+        n_plot_elems = n_plot_nodes - 1
+        assert n_plot_elems in sympy.divisors(n_arr_elems)
+        idxs_to_plot = np.round(np.linspace(0, n_arr_nodes-1, n_plot_nodes)).astype(int)
+        return arr_to_interp[idxs_to_plot]
+
+    n_plot_nodes = 11
 
 
+    for rank_to_plot in range(600,610):
+        for dof in [1,2,3]:
+            str_dof = ["$\Delta_{x, max}$",
+                       "$\Delta_{y, max}$",
+                       "$\Delta_{z, max}$",
+                       "$\Delta_{rx, max}$",
+                       "$\Delta_{ry, max}$",
+                       "$\Delta_{rz, max}$"]
+            case_idx = Nw_sw_maxs_argsorts[rank_to_plot][dof]
+            Nw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes)
+            Nw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes)
+            Hw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes)
+            Hw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes)
+            lats_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lats_bridge, n_plot_nodes)
+            lons_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lons_bridge, n_plot_nodes)
+
+            # ws_to_plot = df_WRF[ws_cols].iloc[idx].to_numpy()
+            # wd_to_plot = np.deg2rad(df_WRF[wd_cols].iloc[df_WRF_idx].to_numpy())
+            cm = matplotlib.cm.cividis
+            norm = matplotlib.colors.Normalize()
+            sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
+            fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True, dpi=400)
+            plt.xlim(5.35, 5.41)
+            plt.ylim(60.077, 60.135)
+
+            fig.suptitle(f'{ordinal(rank_to_plot+1)} 1-hour inhomog. wind event that maximizes {str_dof[dof]}')
+            title_list = [fr'Inhomogeneous wind', fr'Equiv. homogeneous wind']
+            for ax_idx, ax in enumerate(axes.flat):
+                ax.set_title(title_list[ax_idx])
+                ax.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
+                ax.set_aspect(lat_lon_aspect_ratio, adjustable='box')
+                if ax_idx is 0:
+                    ax.quiver(*np.array([lons_bridge, lats_bridge]), -Nw_ws_to_plot * np.sin(Nw_wd_to_plot), -Nw_ws_to_plot * np.cos(Nw_wd_to_plot), color=cm(norm(Nw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
+                elif ax_idx is 1:
+                    ax.quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
+            cbar = fig.colorbar(sm, fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
+            cbar.set_label('U [m/s]')
+            fig.supxlabel('Longitude [$\degree$]')
+            fig.supylabel('Latitude [$\degree$]')
+            plt.tight_layout()
+            plt.savefig(fr'plots/U_Nw_vs_Hw_rank-{rank_to_plot}_dof-{dof}.png')
+            plt.show()
+            plt.close()
+
+
+Nw_plots()
+
+
+
+##################################
+# SCATTER PLOTS FROM FD_std_delta_max.csv file
+##################################
+# # Getting the FD results df file
+# my_result_path = os.path.join(os.getcwd(), r'results')
+# results_paths_FD = []
+# for path in os.listdir(my_result_path):
+#     if path[:16] == "FD_std_delta_max":
+#         results_paths_FD.append(path)
+# for obj in list(enumerate(results_paths_FD)): print(obj)  # print list of files for user to choose
+# file_idx = input('Select which file to plot:')
+# file_to_plot = os.path.join(my_result_path, results_paths_FD[int(file_idx)])
+# results_df = pd.read_csv(file_to_plot)
+# n_Nw_idxs = results_df['Nw_idx'].max() + 1  # to account for 0 idx
+# # Getting the Nw wind properties into the same df
+# my_Nw_buf_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
+# Nw_dict_all, Nw_U_bar_RMS, Hw_U_bar_RMS = [], [], []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+# for i in range(n_Nw_idxs):
+#     Nw_path = os.path.join(my_Nw_buf_path, f'Nw_dict_{i}.json')
+#     with open(Nw_path, 'r') as f:
+#         Nw_dict_all.append(json.load(f))
+#         Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Nw_U_bar'])**2)))
+#         Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Hw_U_bar'])**2)))
+# results_df['Nw_U_bar_RMS'] = results_df['Nw_idx'].map(dict((i,j) for i,j in enumerate(Nw_U_bar_RMS)))
+# results_df['Hw_U_bar_RMS'] = results_df['Nw_idx'].map(dict((i, j) for i, j in enumerate(Hw_U_bar_RMS)))
+# # Plotting
+# for dof in [1,2,3]:
+#     str_dof = ["$\sigma_{x, max}$ $[m]$",
+#                "$\sigma_{y, max}$ $[m]$",
+#                "$\sigma_{z, max}$ $[m]$",
+#                "$\sigma_{rx, max}$ $[\degree]$",
+#                "$\sigma_{ry, max}$ $[\degree]$",
+#                "$\sigma_{rz, max}$ $[\degree]$"]
+#     Nw_row_bools = results_df['Nw_or_equiv_Hw'] == 'Nw'
+#     Hw_row_bools = results_df['Nw_or_equiv_Hw'] == 'Hw'
+#     Nw_x, Hw_x = results_df[Nw_row_bools]['Nw_U_bar_RMS'], results_df[Hw_row_bools]['Hw_U_bar_RMS']
+#     Nw_y, Hw_y = results_df[Nw_row_bools][f'std_max_dof_{dof}'], results_df[Hw_row_bools][f'std_max_dof_{dof}']
+#     if dof >= 3:
+#         Nw_y, Hw_y = deg(Nw_y), deg(Hw_y)
+#     plt.figure(figsize=(5,5), dpi=300)
+#     plt.title(f'Buffeting response ({n_Nw_idxs} worst storms)')
+#     plt.scatter(Nw_x, Nw_y, marker='x', s=10, alpha=0.7, c='orange', label='Inhomogeneous')
+#     plt.scatter(Hw_x, Hw_y, marker='o', s=10, alpha=0.7, c='blue', label='Homogeneous')
+#     plt.ylabel(str_dof[dof])
+#     plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+#     plt.legend()
+#     plt.tight_layout()
+#     plt.savefig(rf'results\buf_scatt_Nw_VS_Hw_dof_{dof}.png')
+#     plt.show()

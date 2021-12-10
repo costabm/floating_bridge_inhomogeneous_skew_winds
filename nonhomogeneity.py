@@ -256,6 +256,21 @@ def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
     return Nw_beta_bar, Nw_theta_bar
 
 
+def equivalent_Hw_beta_0_all(Nw_U_bar, Nw_beta_0, g_node_num, eqv_Hw_beta_method):
+    """this is an auxiliary function that gets Hw_beta_0_all"""
+    if eqv_Hw_beta_method == 'mean':
+        Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(Nw_beta_0), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
+        Hw_sin_beta_0_all = np.repeat(np.mean(np.sin(Nw_beta_0), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
+    elif eqv_Hw_beta_method == 'U_weighted_mean':
+        Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0), axis=1, weights=Nw_U_bar)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+        Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0), axis=1, weights=Nw_U_bar)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    elif eqv_Hw_beta_method == 'U2_weighted_mean':
+        Hw_cos_beta_0_all = np.repeat(np.average(np.cos(Nw_beta_0), axis=1, weights=Nw_U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+        Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0), axis=1, weights=Nw_U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad'))  # making the average of all betas along the bridge girder
+    return Hw_beta_0_all
+
+
 class NwOneCase:
     """
     Non-homogeneous wind class. Gets the necessary information of one WRF case.
@@ -649,16 +664,7 @@ class NwAllCases:
         g_node_coor = self.g_node_coor
         g_node_num = g_node_coor.shape[0]
         n_Nw_cases = self.n_Nw_cases
-        if eqv_Hw_beta_method == 'mean':
-            Hw_cos_beta_0_all = np.repeat(np.mean(np.cos(self.beta_0), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
-            Hw_sin_beta_0_all = np.repeat(np.mean(np.sin(self.beta_0), axis=1)[:, None], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
-        elif eqv_Hw_beta_method == 'U_weighted_mean':
-            Hw_cos_beta_0_all = np.repeat(np.average(np.cos(self.beta_0), axis=1, weights=self.U_bar)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-            Hw_sin_beta_0_all = np.repeat(np.average(np.sin(self.beta_0), axis=1, weights=self.U_bar)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        elif eqv_Hw_beta_method == 'U2_weighted_mean':
-            Hw_cos_beta_0_all = np.repeat(np.average(np.cos(self.beta_0), axis=1, weights=self.U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-            Hw_sin_beta_0_all = np.repeat(np.average(np.sin(self.beta_0), axis=1, weights=self.U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
-        Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad'))  # making the average of all betas along the bridge girder
+        Hw_beta_0_all = equivalent_Hw_beta_0_all(Nw_U_bar=self.U_bar, Nw_beta_0=self.beta_0, g_node_num=g_node_num, eqv_Hw_beta_method=eqv_Hw_beta_method)
         Hw_theta_0_all = np.zeros((n_Nw_cases, g_node_num))
         Hw_beta_bar_all, Hw_theta_bar_all = Nw_beta_and_theta_bar_func(g_node_coor, Hw_beta_0_all, Hw_theta_0_all, self.alpha)
         self.equiv_Hw_beta_0 = Hw_beta_0_all
@@ -681,7 +687,6 @@ class NwAllCases:
         self.S_a = np.array(self.S_a)
         self.S_aa = np.array(self.S_aa)
 
-    # # todo: Static analysis??  self.beta_bar_sw = [], self.theta_bar_sw = []
     def plot_U(self, df_WRF_idx):
         # def colorbar(mappable):
         #     ax = mappable.axes

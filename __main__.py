@@ -305,27 +305,6 @@ if run_new_Nw_sw:
         with open(r'intermediate_results\\static_wind\\Nw_dict_'+str(n)+'.json', 'w', encoding='utf-8') as f:
             json.dump(Nw_dict_1_case, f, ensure_ascii=False, indent=4)
 
-
-    # Trash: (Storing the Nw_all instance as a dictionary... Not a great idea)
-    # Nw_all_dict = json.dumps(Nw_all.__dict__, cls=NumpyEncoder)  # NumpyEnconder ensures all np.arrays are converted to lists
-    # with open(r'intermediate_results\\static_wind\\Nw_all_dict.json', 'w') as f:
-    #     json.dump(Nw_all_dict, f)
-
-
-    # Plotting
-    for dof in [0,1,2,5]:
-        plt.figure(dpi=500)
-        plt.title(f'Sort by "{sort_by}". DOF {dof}')
-        for case in range(Nw_all.n_Nw_cases):
-            plt.plot(Nw_R6g_abs_all[case,:,dof], lw=0.5, alpha=0.1, c='orange')
-            plt.plot(Hw_R6g_abs_all[case,:,dof], lw=0.5, alpha=0.1, c='blue')
-        plt.plot(Nw_R6g_abs_max[:, dof], alpha=0.8, c='orange', lw=3, label=f'Inhomogeneous')
-        plt.plot(Hw_R6g_abs_max[:, dof], alpha=0.8, c='blue', lw=3, label=f'Homogeneous')
-        plt.legend(loc=9)
-        plt.savefig(r'results\All_Nw_vs_Hw_cases_DOF_'+str(dof)+'.png')
-        plt.show()
-        # plt.close()
-
 n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind\\') if 'Nw_dict_' in fname])
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
