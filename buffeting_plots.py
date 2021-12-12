@@ -699,8 +699,17 @@ def Nw_plots():
     # Getting the indexes of the sorted data by response magnitude, in descending order, separately for each dof
     Nw_sw_maxs_argsorts = np.array([Nw_sw_maxs[:,dof].argsort()[::-1] for dof in range(6)]).T
     Hw_sw_maxs_argsorts = np.array([Hw_sw_maxs[:,dof].argsort()[::-1] for dof in range(6)]).T
+    Nw_buf_maxs_argsorts = np.array([Nw_buf_maxs[:,dof].argsort()[::-1] for dof in range(6)]).T
+    Hw_buf_maxs_argsorts = np.array([Hw_buf_maxs[:,dof].argsort()[::-1] for dof in range(6)]).T
+    Nw_sw_buf_maxs_argsorts = np.array([Nw_sw_plus_buf_absmax[:,dof].argsort()[::-1] for dof in range(6)]).T
+    Hw_sw_buf_maxs_argsorts = np.array([Hw_sw_plus_buf_absmax[:,dof].argsort()[::-1] for dof in range(6)]).T
+    Nw_all_argsorts = {'Nw':{'sw':Nw_sw_maxs_argsorts,
+                             'buf':Nw_buf_maxs_argsorts,
+                             'sw_buf':Nw_sw_buf_maxs_argsorts},
+                       'Hw': {'sw': Hw_sw_maxs_argsorts,
+                              'buf': Hw_buf_maxs_argsorts,
+                              'sw_buf': Hw_sw_buf_maxs_argsorts}}
     ######################################################################################################
-
     Nw_U_bar = np.array(Nw_U_bar)
     Hw_U_bar = np.array(Hw_U_bar)
     Nw_beta_DB = beta_DB_func(np.array(Nw_beta_0))
@@ -708,6 +717,7 @@ def Nw_plots():
     lats_bridge, lons_bridge = bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes=n_g_nodes).T
 
     ordinal = lambda n: "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])  # just a function to convert int to an ordinal string. e.g. 1->'1st'
+
     def interpolate_from_n_nodes_to_nearest_n_nodes_plotted(arr_to_interp, n_plot_nodes):
         """Example: from U_bar with size (n_g_nodes), it returns U_bar with size (n_nodes_plotted). It selects equally spaced indexes of arr_to_interp"""
         n_arr_nodes = len(arr_to_interp)
@@ -717,52 +727,63 @@ def Nw_plots():
         idxs_to_plot = np.round(np.linspace(0, n_arr_nodes-1, n_plot_nodes)).astype(int)
         return arr_to_interp[idxs_to_plot]
 
-    n_plot_nodes = 11
+    n_plot_nodes = 11  # number of nodes to plot along the bridge
 
+    for analysis_type in ['sw', 'buf', 'sw_buf']:
+        for rank_to_plot in range(0,10):  # 0 returns the 1st Nw wind case that gives the highest response in dof. 1 gives the 2nd case, and so on...
+            for dof in [1]:
+                str_dof = {'sw':["$|\Delta_x|_{max}$",
+                                 "$|\Delta_y|_{max}$",
+                                 "$|\Delta_z|_{max}$",
+                                 "$|\Delta_{rx}|_{max}$",
+                                 "$|\Delta_{ry}|_{max}$",
+                                 "$|\Delta_{rz}|_{max}$"],
+                          'buf':["$\sigma_{x, max}$",
+                                 "$\sigma_{y, max}$",
+                                 "$\sigma_{z, max}$",
+                                 "$\sigma_{rx, max}$",
+                                 "$\sigma_{ry, max}$",
+                                 "$\sigma_{rz, max}$"],
+                      'sw_buf':[r"$|\Delta_x\/\pm\/k_p\times\sigma_x|_{max}$",
+                                r"$|\Delta_y\/\pm\/k_p\times\sigma_y|_{max}$",
+                                r"$|\Delta_z\/\pm\/k_p\times\sigma_z|_{max}$",
+                                r"$|\Delta_{rx}\/\pm\/k_p\times\sigma_{rx}|_{max}$",
+                                r"$|\Delta_{ry}\/\pm\/k_p\times\sigma_{ry}|_{max}$",
+                                r"$|\Delta_{rz}\/\pm\/k_p\times\sigma_{rz}|_{max}$"]}
 
-    for rank_to_plot in range(600,610):
-        for dof in [1,2,3]:
-            str_dof = ["$\Delta_{x, max}$",
-                       "$\Delta_{y, max}$",
-                       "$\Delta_{z, max}$",
-                       "$\Delta_{rx, max}$",
-                       "$\Delta_{ry, max}$",
-                       "$\Delta_{rz, max}$"]
-            case_idx = Nw_sw_maxs_argsorts[rank_to_plot][dof]
-            Nw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes)
-            Nw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes)
-            Hw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes)
-            Hw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes)
-            lats_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lats_bridge, n_plot_nodes)
-            lons_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lons_bridge, n_plot_nodes)
+                case_idx = Nw_all_argsorts['Nw'][analysis_type][rank_to_plot][dof]  # The rank_to_plot'th index of the Nw wind case that maximizes dof
 
-            # ws_to_plot = df_WRF[ws_cols].iloc[idx].to_numpy()
-            # wd_to_plot = np.deg2rad(df_WRF[wd_cols].iloc[df_WRF_idx].to_numpy())
-            cm = matplotlib.cm.cividis
-            norm = matplotlib.colors.Normalize()
-            sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
-            fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True, dpi=400)
-            plt.xlim(5.35, 5.41)
-            plt.ylim(60.077, 60.135)
+                Nw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes)
+                Nw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes)
+                Hw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes)
+                Hw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes)
+                lats_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lats_bridge, n_plot_nodes)
+                lons_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lons_bridge, n_plot_nodes)
+                cm = matplotlib.cm.cividis
+                norm = matplotlib.colors.Normalize()
+                sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
+                fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True, dpi=400)
+                plt.xlim(5.35, 5.41)
+                plt.ylim(60.077, 60.135)
+                fig.suptitle(f'{ordinal(rank_to_plot+1)} 1-hour inhomog. wind event that maximizes {str_dof[analysis_type][dof]}')
+                title_list = [fr'Inhomogeneous wind', fr'Equiv. homogeneous wind']
+                for ax_idx, ax in enumerate(axes.flat):
+                    ax.set_title(title_list[ax_idx])
+                    ax.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
+                    ax.set_aspect(lat_lon_aspect_ratio, adjustable='box')
+                    if ax_idx is 0:
+                        ax.quiver(*np.array([lons_bridge, lats_bridge]), -Nw_ws_to_plot * np.sin(Nw_wd_to_plot), -Nw_ws_to_plot * np.cos(Nw_wd_to_plot), color=cm(norm(Nw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
+                    elif ax_idx is 1:
+                        ax.quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
+                cbar = fig.colorbar(sm, fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
+                cbar.set_label('U [m/s]')
+                fig.supxlabel('Longitude [$\degree$]')
+                fig.supylabel('Latitude [$\degree$]')
+                plt.tight_layout()
+                plt.savefig(fr'plots/U_{analysis_type}_Nw_vs_Hw_rank-{rank_to_plot}_dof-{dof}.png')
+                plt.show()
+                plt.close()
 
-            fig.suptitle(f'{ordinal(rank_to_plot+1)} 1-hour inhomog. wind event that maximizes {str_dof[dof]}')
-            title_list = [fr'Inhomogeneous wind', fr'Equiv. homogeneous wind']
-            for ax_idx, ax in enumerate(axes.flat):
-                ax.set_title(title_list[ax_idx])
-                ax.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
-                ax.set_aspect(lat_lon_aspect_ratio, adjustable='box')
-                if ax_idx is 0:
-                    ax.quiver(*np.array([lons_bridge, lats_bridge]), -Nw_ws_to_plot * np.sin(Nw_wd_to_plot), -Nw_ws_to_plot * np.cos(Nw_wd_to_plot), color=cm(norm(Nw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
-                elif ax_idx is 1:
-                    ax.quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
-            cbar = fig.colorbar(sm, fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
-            cbar.set_label('U [m/s]')
-            fig.supxlabel('Longitude [$\degree$]')
-            fig.supylabel('Latitude [$\degree$]')
-            plt.tight_layout()
-            plt.savefig(fr'plots/U_Nw_vs_Hw_rank-{rank_to_plot}_dof-{dof}.png')
-            plt.show()
-            plt.close()
 
 
 Nw_plots()
