@@ -21,10 +21,11 @@ def from_cos_sin_to_0_2pi(cosines, sines, out_units='rad'):
     return atan2
 
 generate_new_WRF_at_bridge_nodes_file = True
+z_str = '60m'  # 10m, 19m, 60m. Height at which the WRF has been calculated (different heights -> different files)
 
 if generate_new_WRF_at_bridge_nodes_file:
     # Getting the already pre-processed data (mini-grid of the relevant WRF 500m datapoints that are near the bridge)
-    dataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', 'WRF_500m_minigrid.nc'), 'r')
+    dataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', f'WRF_{z_str}_500m_minigrid.nc'), 'r')
     lats_grid = dataset['latitudes'][:].data
     lons_grid = dataset['longitudes'][:].data
     ws_grid = dataset['ws'][:].data
@@ -45,7 +46,7 @@ if generate_new_WRF_at_bridge_nodes_file:
     wd_interp = from_cos_sin_to_0_2pi(wd_cos_interp, wd_sin_interp, out_units='deg')
 
     # Saving the newly obtained WRF dataset at the bridge nodes
-    bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'w', format='NETCDF4')
+    bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', f'WRF_{z_str}_at_bridge_nodes.nc'), 'w', format='NETCDF4')
     bridgedataset.createDimension('n_nodes', n_bridge_nodes)
     bridgedataset.createDimension('n_time_points', n_time_points)
     bridgedataset_lats = bridgedataset.createVariable('latitudes', 'f4', ('n_nodes',))  # f4: 32-bit signed floating point
@@ -63,7 +64,7 @@ if generate_new_WRF_at_bridge_nodes_file:
 
 
 # Reading the WRF dataset at the bridge nodes:
-bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'r', format='NETCDF4')
+bridgedataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', f'WRF_{z_str}_at_bridge_nodes.nc'), 'r', format='NETCDF4')
 lats_bridge = bridgedataset['latitudes'][:].data
 lons_bridge = bridgedataset['longitudes'][:].data
 ws_orig = bridgedataset['ws'][:].data  # original data

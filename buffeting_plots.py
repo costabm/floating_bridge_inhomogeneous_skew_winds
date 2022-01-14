@@ -731,7 +731,7 @@ def Nw_plots():
 
     for analysis_type in ['sw', 'buf', 'sw_buf']:
         for rank_to_plot in range(0,10):  # 0 returns the 1st Nw wind case that gives the highest response in dof. 1 gives the 2nd case, and so on...
-            for dof in [1]:
+            for dof in [1,2,3]:
                 str_dof = {'sw':["$|\Delta_x|_{max}$",
                                  "$|\Delta_y|_{max}$",
                                  "$|\Delta_z|_{max}$",
