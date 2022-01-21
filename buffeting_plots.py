@@ -4,6 +4,7 @@ from buffeting import beta_DB_func
 from create_minigrid_data_from_raw_WRF_500_data import lat_lon_aspect_ratio, bridge_WRF_nodes_coor_func
 from nonhomogeneity import NwOneCase, NwAllCases, equivalent_Hw_beta_0_all
 from simple_5km_bridge_geometry import g_node_coor, p_node_coor, g_s_3D_func
+from my_utils import normalize
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib import colors
@@ -488,7 +489,7 @@ def Nw_plots():
     # Getting the Nw wind properties into the same df
     my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
     n_Nw_sw_cases = len(os.listdir(my_Nw_path))
-    Nw_dict_all, Nw_D_loc, Hw_D_loc, Nw_U_bar_RMS, Nw_U_bar, Hw_U_bar, Hw_U_bar_RMS, Nw_beta_0,  Hw_beta_0 = [],[],[],[],[],[],[],[],[]  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    Nw_dict_all, Nw_D_loc, Hw_D_loc, Nw_U_bar_RMS, Nw_U_bar, Hw_U_bar, Hw_U_bar_RMS, Nw_beta_0,  Hw_beta_0, Nw_Ii, Hw_Ii = [],[],[],[],[],[],[],[],[],[],[]  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
     for i in range(n_Nw_sw_cases):
         Nw_path = os.path.join(my_Nw_path, f'Nw_dict_{i}.json')
         with open(Nw_path, 'r') as f:
@@ -501,6 +502,8 @@ def Nw_plots():
             Hw_beta_0.append(np.array(Nw_dict_all[i]['Hw_beta_0']))
             Nw_D_loc.append(np.array(Nw_dict_all[i]['Nw_D_loc']))
             Hw_D_loc.append(np.array(Nw_dict_all[i]['Hw_D_loc']))
+            Nw_Ii.append(np.array(Nw_dict_all[i]['Nw_Ii']))
+            Hw_Ii.append(np.array(Nw_dict_all[i]['Hw_Ii']))
 
     def func(x, dof):
         """converts results in radians to degrees, if dof is an angle"""
@@ -809,6 +812,8 @@ def Nw_plots():
     ######################################################################################################
     Nw_U_bar = np.array(Nw_U_bar)
     Hw_U_bar = np.array(Hw_U_bar)
+    Nw_Ii = np.array(Nw_Ii)
+    Hw_Ii = np.array(Hw_Ii)
     Nw_beta_DB = beta_DB_func(np.array(Nw_beta_0))
     Hw_beta_DB = beta_DB_func(np.array(Hw_beta_0))
     lats_bridge, lons_bridge = bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes=n_g_nodes).T
@@ -848,40 +853,60 @@ def Nw_plots():
                                 r"$|\Delta_{ry}\/\pm\/k_p\times\sigma_{ry}|_{max}$",
                                 r"$|\Delta_{rz}\/\pm\/k_p\times\sigma_{rz}|_{max}$"]}
 
+                def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+                    new_cmap = colors.LinearSegmentedColormap.from_list(
+                        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+                        cmap(np.linspace(minval, maxval, n)))
+                    return new_cmap
+
                 case_idx = Nw_all_argsorts['Nw'][analysis_type][rank_to_plot][dof]  # The rank_to_plot'th index of the Nw wind case that maximizes dof
 
                 Nw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes)
                 Nw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes)
+                Nw_Iu_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_Ii[case_idx,:,0], n_plot_nodes)
                 Hw_ws_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes)
                 Hw_wd_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes)
+                Hw_Iu_to_plot = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_Ii[case_idx, :, 0], n_plot_nodes)
+                Iu_min = np.min(Nw_Ii[:, :, 0])
+                Iu_max = np.max(Nw_Ii[:, :, 0])
                 lats_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lats_bridge, n_plot_nodes)
                 lons_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lons_bridge, n_plot_nodes)
-                cm = matplotlib.cm.cividis
+                cm = truncate_colormap(matplotlib.cm.Blues, 0.1, 1.0)  # cividis_r
                 norm = matplotlib.colors.Normalize()
                 sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
-                fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True, dpi=400)
+                cm2 = truncate_colormap(matplotlib.cm.Oranges, 0.1, 1.0)  # removing the first 10% out of the cmap, which were too bright/transparent
+                norm2 = matplotlib.colors.Normalize(vmin=Iu_min, vmax=Iu_max)
+                sm2 = matplotlib.cm.ScalarMappable(cmap=cm2, norm=norm2)
+                # fig, axes = plt.subplots(ncols=4, sharex=True, sharey=True, dpi=400, gridspec_kw={'width_ratios': [10,10,2,2]})
+                fig, axes = plt.subplots(1,2, sharex=True, sharey=True, dpi=400, constrained_layout=True)
+                # ax1 = fig.add_subplot(1, 2, 1)  # for Nw wind
+                # ax2 = fig.add_subplot(1, 2, 2, sharex=ax1, sharey=ax1)  # for Hw wind
+                # ax3 = fig.add_subplot(1, 2, 3)  # for colorbar 1
+                # ax4 = fig.add_subplot(1, 2, 4)  # for colorbar 2
+                fig.add_gridspec()
                 plt.xlim(5.35, 5.41)
                 plt.ylim(60.077, 60.135)
-                fig.suptitle(f'{ordinal(rank_to_plot+1)} 1-hour inhomog. wind event that maximizes {str_dof[analysis_type][dof]}')
-                title_list = [fr'Inhomogeneous wind', fr'Equiv. homogeneous wind']
-                for ax_idx, ax in enumerate(axes.flat):
-                    ax.set_title(title_list[ax_idx])
-                    ax.scatter(*np.array([lons_bridge, lats_bridge]), color='black', s=5)
-                    ax.set_aspect(lat_lon_aspect_ratio, adjustable='box')
-                    if ax_idx is 0:
-                        ax.quiver(*np.array([lons_bridge, lats_bridge]), -Nw_ws_to_plot * np.sin(Nw_wd_to_plot), -Nw_ws_to_plot * np.cos(Nw_wd_to_plot), color=cm(norm(Nw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
-                    elif ax_idx is 1:
-                        ax.quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.015, headlength=3, headaxislength=3)
-                cbar = fig.colorbar(sm, fraction=0.078, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
+                fig.suptitle(f'{ordinal(rank_to_plot+1)} 1-hour inhomog. wind event that maximizes {str_dof[analysis_type][dof]}', y=0.97)
+                title_list = [fr'Inhomog. wind', fr'Equiv. homog. wind']
+
+                axes[0].set_title(title_list[0])
+                axes[1].set_title(title_list[1])
+                axes[0].set_aspect(lat_lon_aspect_ratio, adjustable='box')
+                axes[1].set_aspect(lat_lon_aspect_ratio, adjustable='box')
+                axes[0].scatter(*np.array([lons_bridge, lats_bridge]), color=cm2(norm2(Nw_Iu_to_plot)), s=normalize(Nw_Iu_to_plot, old_bounds=[Iu_min, Iu_max], new_bounds=[15, 160]))
+                axes[0].quiver(*np.array([lons_bridge, lats_bridge]), -Nw_ws_to_plot * np.sin(Nw_wd_to_plot), -Nw_ws_to_plot * np.cos(Nw_wd_to_plot), color=cm(norm(Nw_ws_to_plot)), angles='uv', scale=100, width=0.02, headlength=3, headaxislength=3)
+                axes[1].scatter(*np.array([lons_bridge, lats_bridge]), color=cm2(norm2(Hw_Iu_to_plot)), s=normalize(Hw_Iu_to_plot, old_bounds=[Iu_min, Iu_max], new_bounds=[15, 160]))
+                axes[1].quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.02, headlength=3, headaxislength=3)
+
+                cbar2 = fig.colorbar(sm2, cax=None, fraction=0.097, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
+                cbar2.set_label('Iu')
+                cbar = fig.colorbar(sm, cax=None, fraction=0.097, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible. Good values for 1 colorbar: fraction=0.078, pad=0.076
                 cbar.set_label('U [m/s]')
-                fig.supxlabel('Longitude [$\degree$]')
-                fig.supylabel('Latitude [$\degree$]')
-                plt.tight_layout()
+                fig.supxlabel('Longitude [$\degree$]', x=0.41, y=0.03)
+                fig.supylabel('Latitude [$\degree$]       ')
                 plt.savefig(fr'plots/U_{analysis_type}_Nw_vs_Hw_rank-{rank_to_plot}_dof-{dof}.png')
                 plt.show()
                 plt.close()
-
-
 
 Nw_plots()
 
