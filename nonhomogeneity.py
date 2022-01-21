@@ -197,7 +197,8 @@ def Nw_Iu_all_dirs_database(g_node_coor, model='ANN', use_existing_file=True):
     use_existing_file: False should be used when we have new g_node_num!!
     Returns an array of Iu with shape (n_g_nodes, n_dirs==360)
     """
-    assert zbridge == 14.5, "ERROR: zbridge!=14.5m. You must produce new Iu_EN_preds at the correct Z. Go to MetOcean project and replace all '14m' by desired Z. Copy the new json files to this project "
+    # NOTE: The new Z at which inhomogeneous wind is evaluated is z=18m, to match that of WRF simulations
+    # assert zbridge == 14.5, "ERROR: zbridge!=14.5m. You must produce new Iu_EN_preds at the correct Z. Go to MetOcean project and replace all '14m' by desired Z. Copy the new json files to this project "
 
     if model == 'ANN':
         if not use_existing_file:
@@ -206,33 +207,33 @@ def Nw_Iu_all_dirs_database(g_node_coor, model='ANN', use_existing_file=True):
                 dict_Iu_48m_ANN_preds = json.loads(f.read())
             with open(r"intermediate_results\\Nw_Iu\\Iu_48m_EN_preds.json") as f:
                 dict_Iu_48m_EN_preds = json.loads(f.read())
-            with open(r"intermediate_results\\Nw_Iu\\Iu_14m_EN_preds.json") as f:
-                dict_Iu_14m_EN_preds = json.loads(f.read())
-            dict_Iu_14m_ANN_preds = get_Iu_ANN_Z2_preds(ANN_Z1_preds=dict_Iu_48m_ANN_preds, EN_Z1_preds=dict_Iu_48m_EN_preds, EN_Z2_preds=dict_Iu_14m_EN_preds)
-            Iu_14m_ANN_preds_WRF = np.array([dict_Iu_14m_ANN_preds[k]['Iu'] for k in dict_Iu_14m_ANN_preds.keys()]).T  # calculated at 11 WRF nodes
-            Iu_14m_ANN_preds = interpolate_from_WRF_nodes_to_g_nodes(Iu_14m_ANN_preds_WRF, g_node_coor, WRF_node_coor, plot=False)  # calculated at the girder nodes
-            Iu_14m_ANN_preds = Iu_14m_ANN_preds.T
+            with open(r"intermediate_results\\Nw_Iu\\Iu_18m_EN_preds.json") as f:
+                dict_Iu_18m_EN_preds = json.loads(f.read())
+            dict_Iu_18m_ANN_preds = get_Iu_ANN_Z2_preds(ANN_Z1_preds=dict_Iu_48m_ANN_preds, EN_Z1_preds=dict_Iu_48m_EN_preds, EN_Z2_preds=dict_Iu_18m_EN_preds)
+            Iu_18m_ANN_preds_WRF = np.array([dict_Iu_18m_ANN_preds[k]['Iu'] for k in dict_Iu_18m_ANN_preds.keys()]).T  # calculated at 11 WRF nodes
+            Iu_18m_ANN_preds = interpolate_from_WRF_nodes_to_g_nodes(Iu_18m_ANN_preds_WRF, g_node_coor, WRF_node_coor, plot=False)  # calculated at the girder nodes
+            Iu_18m_ANN_preds = Iu_18m_ANN_preds.T
             # Storing
-            with open(r'intermediate_results\\Nw_Iu\\Iu_14m_ANN_preds_g_nodes.json', 'w', encoding='utf-8') as f:
-                json.dump(Iu_14m_ANN_preds.tolist(), f, ensure_ascii=False, indent=4)
+            with open(r'intermediate_results\\Nw_Iu\\Iu_18m_ANN_preds_g_nodes.json', 'w', encoding='utf-8') as f:
+                json.dump(Iu_18m_ANN_preds.tolist(), f, ensure_ascii=False, indent=4)
         else:
-            with open(r'intermediate_results\\Nw_Iu\\Iu_14m_ANN_preds_g_nodes.json') as f:
-                Iu_14m_ANN_preds = np.array(json.loads(f.read()))
-        return Iu_14m_ANN_preds
+            with open(r'intermediate_results\\Nw_Iu\\Iu_18m_ANN_preds_g_nodes.json') as f:
+                Iu_18m_ANN_preds = np.array(json.loads(f.read()))
+        return Iu_18m_ANN_preds
     elif model == 'EN':
         if not use_existing_file:
-            with open(r"intermediate_results\\Nw_Iu\\Iu_14m_EN_preds.json") as f:
-                dict_Iu_14m_EN_preds = json.loads(f.read())
-            Iu_14m_EN_preds_WRF = np.array([dict_Iu_14m_EN_preds[k]['Iu'] for k in dict_Iu_14m_EN_preds.keys()]).T  # calculated at 11 WRF nodes
-            Iu_14m_EN_preds = interpolate_from_WRF_nodes_to_g_nodes(Iu_14m_EN_preds_WRF, g_node_coor, WRF_node_coor, plot=False)  # calculated at the girder nodes
-            Iu_14m_EN_preds = Iu_14m_EN_preds.T
+            with open(r"intermediate_results\\Nw_Iu\\Iu_18m_EN_preds.json") as f:
+                dict_Iu_18m_EN_preds = json.loads(f.read())
+            Iu_18m_EN_preds_WRF = np.array([dict_Iu_18m_EN_preds[k]['Iu'] for k in dict_Iu_18m_EN_preds.keys()]).T  # calculated at 11 WRF nodes
+            Iu_18m_EN_preds = interpolate_from_WRF_nodes_to_g_nodes(Iu_18m_EN_preds_WRF, g_node_coor, WRF_node_coor, plot=False)  # calculated at the girder nodes
+            Iu_18m_EN_preds = Iu_18m_EN_preds.T
             # Storing
-            with open(r'intermediate_results\\Nw_Iu\\Iu_14m_EN_preds_g_nodes.json', 'w', encoding='utf-8') as f:
-                json.dump(Iu_14m_EN_preds.tolist(), f, ensure_ascii=False, indent=4)
+            with open(r'intermediate_results\\Nw_Iu\\Iu_18m_EN_preds_g_nodes.json', 'w', encoding='utf-8') as f:
+                json.dump(Iu_18m_EN_preds.tolist(), f, ensure_ascii=False, indent=4)
         else:
-            with open(r'intermediate_results\\Nw_Iu\\Iu_14m_EN_preds_g_nodes.json') as f:
-                Iu_14m_EN_preds = np.array(json.loads(f.read()))
-        return Iu_14m_EN_preds
+            with open(r'intermediate_results\\Nw_Iu\\Iu_18m_EN_preds_g_nodes.json') as f:
+                Iu_18m_EN_preds = np.array(json.loads(f.read()))
+        return Iu_18m_EN_preds
 
 
 def Nw_beta_and_theta_bar_func(g_node_coor, Nw_beta_0, Nw_theta_0, alpha):
@@ -269,6 +270,18 @@ def equivalent_Hw_beta_0_all(Nw_U_bar, Nw_beta_0, g_node_num, eqv_Hw_beta_method
         Hw_sin_beta_0_all = np.repeat(np.average(np.sin(Nw_beta_0), axis=1, weights=Nw_U_bar ** 2)[:, None], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
     Hw_beta_0_all = beta_within_minus_Pi_and_Pi_func(from_cos_sin_to_0_2pi(Hw_cos_beta_0_all, Hw_sin_beta_0_all, out_units='rad'))  # making the average of all betas along the bridge girder
     return Hw_beta_0_all
+
+
+def equivalent_Hw_Ii_all(Nw_U_bar, Nw_Ii, g_node_num, eqv_Hw_Ii_method):
+    """this is an auxiliary function that gets Hw_Ii_all with shape(n_cases, n_nodes, 3)"""
+    Nw_U_bar_repeated = np.repeat(Nw_U_bar[:,:,None], repeats=3, axis=-1)  # repeated to have same shape as Nw_Ii to then do weighted average
+    if eqv_Hw_Ii_method == 'mean':
+        Hw_Ii_all = np.repeat(np.mean(Nw_Ii, axis=1)[:, None, :], repeats=g_node_num, axis=1)  # making the average of all betas along the bridge girder
+    elif eqv_Hw_Ii_method == 'U_weighted_mean':
+        Hw_Ii_all = np.repeat(np.average(Nw_Ii, axis=1, weights=Nw_U_bar_repeated)[:, None, :], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    elif eqv_Hw_Ii_method == 'U2_weighted_mean':
+        Hw_Ii_all = np.repeat(np.average(Nw_Ii, axis=1, weights=Nw_U_bar_repeated ** 2)[:, None, :], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    return Hw_Ii_all
 
 
 class NwOneCase:
@@ -311,7 +324,7 @@ class NwOneCase:
         tresh_requirement_type: 'any' to keep all cases where at least 1 U is above U_tresh; 'all' to keep only cases where all U >= U_tresh
         sort_by: 'time', 'ws_var', 'ws_max', 'wd_var'
         """
-        WRF_dataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_at_bridge_nodes.nc'), 'r', format='NETCDF4')
+        WRF_dataset = netCDF4.Dataset(os.path.join(os.getcwd(), r'WRF_500_interpolated', r'WRF_19m_at_bridge_nodes.nc'), 'r', format='NETCDF4')
         with warnings.catch_warnings():  # ignore a np.bool deprecation warning inside the netCDF4 module
             warnings.simplefilter("ignore")
             ws_orig = WRF_dataset['ws'][:].data  # original data
@@ -590,6 +603,7 @@ class NwAllCases:
             self.equiv_Hw_theta_0 = []  # Equivalent Homogeneous theta 0
             self.equiv_Hw_beta_bar = []  # Equivalent Homogeneous beta bar
             self.equiv_Hw_theta_bar = []  # Equivalent Homogeneous theta bar
+            self.equiv_Hw_Ii = []  # Equivalent Homogeneous Ii
 
     def set_df_WRF(self, U_tresh=12, tresh_requirement_type='any', sort_by='time'):
         """
@@ -671,6 +685,11 @@ class NwAllCases:
         self.equiv_Hw_theta_0 = Hw_theta_0_all
         self.equiv_Hw_beta_bar = Hw_beta_bar_all
         self.equiv_Hw_theta_bar = Hw_theta_bar_all
+
+    def set_equivalent_Hw_Ii(self, eqv_Hw_Ii_method = 'U_weighted_mean'):
+        g_node_coor = self.g_node_coor
+        g_node_num = g_node_coor.shape[0]
+        self.equiv_Hw_Ii = equivalent_Hw_Ii_all(Nw_U_bar=self.U_bar, Nw_Ii=self.Ii, g_node_num=g_node_num, eqv_Hw_Ii_method=eqv_Hw_Ii_method)
 
     def _convert_attributes_from_lists_to_arrs(self):
         """Converts the instance attributes from a list of lists, to numpy arrays"""

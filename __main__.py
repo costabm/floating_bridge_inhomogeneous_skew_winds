@@ -28,7 +28,7 @@ start_time = time.time()
 run_modal_analysis = False
 run_DL = False  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
-run_new_Nw_sw = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+run_new_Nw_sw = True # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
 
 run_modal_analysis_after_static_loads = False
 
@@ -271,12 +271,13 @@ if run_new_Nw_sw:
     Nw_all = NwAllCases()
     sort_by = 'ws_max'
     n_Nw_cases = 'all'
-    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=15)
+    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=17.2)
 
     Nw_all.set_structure(g_node_coor, p_node_coor, alpha)
     Nw_all.set_Nw_wind(n_Nw_cases=n_Nw_cases, force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, f_array='static_wind_only')
     Nw_all.set_equivalent_Hw_U_bar(force_Nw_U_bar_and_U_bar_to_have_same='energy')
     Nw_all.set_equivalent_Hw_beta(eqv_Hw_beta_method = 'U2_weighted_mean')
+    Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='U_weighted_mean')
     Nw_all.plot_U(df_WRF_idx=-1)
 
     Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R_loc_all, Nw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.U_bar, Nw_all.beta_bar, Nw_all.theta_bar, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
@@ -294,7 +295,7 @@ if run_new_Nw_sw:
                            'Nw_beta_0':Nw_all.beta_0.tolist(), 'Nw_theta_0':Nw_all.theta_0.tolist(), 'Nw_Ii':Nw_all.Ii.tolist(), # 'Nw_S_a':Nw_all.S_a.tolist(),  # 'Nw_S_aa':Nw_all.S_aa.tolist(),  # Only static wind!. S_aa is not included because it is way too large...
                            'Hw_g_node_coor':Hw_g_node_coor_all.tolist(), 'Hw_p_node_coor':Hw_p_node_coor_all.tolist(), 'Hw_D_glob':Hw_D_glob_all.tolist(), 'Hw_D_loc':Hw_D_loc_all.tolist(),
                            'Hw_R_loc':Hw_R_loc_all.tolist(), 'Hw_U_bar':Nw_all.equiv_Hw_U_bar.tolist(), 'Hw_beta_bar':Nw_all.equiv_Hw_beta_bar.tolist(), 'Hw_theta_bar':Nw_all.equiv_Hw_theta_bar.tolist(),
-                           'Hw_beta_0':Nw_all.equiv_Hw_beta_0.tolist(), 'Hw_theta_0':Nw_all.equiv_Hw_theta_0.tolist()}  # todo: define Hw_beta_0 and Hw_theta_0!
+                           'Hw_beta_0':Nw_all.equiv_Hw_beta_0.tolist(), 'Hw_theta_0':Nw_all.equiv_Hw_theta_0.tolist(), 'Hw_Ii':Nw_all.equiv_Hw_Ii.tolist()}
 
     # Storing each case in individual json files! If all cases were stored in one file, it would have over 1 Gb and buffeting.py would be too slow when opening it every time to only access 1 case
     for n in range(Nw_dict_all_results['n_cases']):   # Nw_dict_all_results['n_cases']):
@@ -306,6 +307,7 @@ if run_new_Nw_sw:
             json.dump(Nw_dict_1_case, f, ensure_ascii=False, indent=4)
 
 n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind\\') if 'Nw_dict_' in fname])
+
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ########################################################################################################################

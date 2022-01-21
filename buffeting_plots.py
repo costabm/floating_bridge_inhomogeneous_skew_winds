@@ -18,6 +18,24 @@ def rad(deg):
 def deg(rad):
     return rad*180/np.pi
 
+def get_bridge_node_angles_and_radia_to_plot(ax):
+    # rotate from Gs system to Gmagnetic system, where x-axis is aligned with S-N direction:
+    rot_angle = rad(10)
+    g_node_coor_Gmagnetic = np.einsum('ij,nj->ni', np.transpose(np.array([[np.cos(rot_angle), -np.sin(rot_angle), 0],
+                                                                          [np.sin(rot_angle), np.cos(rot_angle), 0],
+                                                                          [0, 0, 1]])), g_node_coor)
+    ylim = ax.get_ylim()[1] * 0.9
+    half_chord = np.max(abs(g_node_coor[:, 0])) / 2
+    sagitta = np.max(abs(g_node_coor[:, 1]))
+    # Translating grom Gmagnetic to Gcompasscenter, for the coor. sys. to be at the center of the compass
+    g_node_coor_Gcompasscenter = np.array([g_node_coor_Gmagnetic[:, 0] - half_chord * np.cos(rot_angle) + sagitta * np.sin(rot_angle),  # the sagitta terms can alternatively be removed
+                                           g_node_coor_Gmagnetic[:, 1] + half_chord * np.sin(rot_angle) + sagitta * np.cos(rot_angle),  # the sagitta terms can alternatively be removed
+                                           g_node_coor_Gmagnetic[:, 2]]).transpose()
+    bridge_node_radius = np.sqrt(g_node_coor_Gcompasscenter[:, 0] ** 2 + g_node_coor_Gcompasscenter[:, 1] ** 2)
+    bridge_node_radius_norm = bridge_node_radius / np.max(abs(g_node_coor_Gcompasscenter)) * ylim
+    bridge_node_angle = np.arctan2(-g_node_coor_Gcompasscenter[:, 1], g_node_coor_Gcompasscenter[:, 0])
+    return bridge_node_angle, bridge_node_radius_norm
+
 # SENSITIVITY ANALYSIS
 # Plotting response
 def response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_polygon=False, tables_of_differences=False, shaded_sector=True, show_bridge=True, order_by=['skew_approach', 'Analysis', 'g_node_num', 'n_freq', 'SWind', 'KG',  'Method', 'SE', 'FD_type', 'C_Ci_linearity', 'beta_DB']):
@@ -242,22 +260,7 @@ def response_polar_plots(symmetry_180_shifts=False, error_bars=True, closing_pol
             ax.fill_between(np.linspace(rad(280+30), rad(360)   , 100), ylim[0], ylim[1], color='grey', alpha=0.1, edgecolor='None') #, zorder=0.8)
             ax.fill_between(np.linspace(rad(0)     , rad(100-30), 100), ylim[0], ylim[1], color='grey', alpha=0.1, edgecolor='None', label='Domain of ' + r'$C_{i}$' + ' extrapolation') #, zorder=0.8)
         if show_bridge:
-            from simple_5km_bridge_geometry import g_node_coor
-            # rotate from Gs system to Gmagnetic system, where x-axis is aligned with S-N direction:
-            rot_angle = rad(10)
-            g_node_coor_Gmagnetic = np.einsum('ij,nj->ni', np.transpose(np.array([[np.cos(rot_angle), -np.sin(rot_angle), 0],
-                                                                                  [np.sin(rot_angle),  np.cos(rot_angle), 0],
-                                                                                  [                0,                  0, 1]])), g_node_coor)
-            ylim = ax.get_ylim()[1] * 0.9
-            half_chord = np.max(abs(g_node_coor[:,0])) / 2
-            sagitta = np.max(abs(g_node_coor[:, 1]))
-            # Translating grom Gmagnetic to Gcompasscenter, for the coor. sys. to be at the center of the compass
-            g_node_coor_Gcompasscenter = np.array([g_node_coor_Gmagnetic[:,0]-half_chord*np.cos(rot_angle)  + sagitta*np.sin(rot_angle),  # the sagitta terms can alternatively be removed
-                                                   g_node_coor_Gmagnetic[:,1]+half_chord*np.sin(rot_angle)  + sagitta*np.cos(rot_angle),  # the sagitta terms can alternatively be removed
-                                                   g_node_coor_Gmagnetic[:,2]]).transpose()
-            bridge_node_radius = np.sqrt(g_node_coor_Gcompasscenter[:,0]**2 + g_node_coor_Gcompasscenter[:,1]**2)
-            bridge_node_radius_norm = bridge_node_radius / np.max(abs(g_node_coor_Gcompasscenter)) * ylim
-            bridge_node_angle = np.arctan2(-g_node_coor_Gcompasscenter[:,1],g_node_coor_Gcompasscenter[:,0])
+            bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
             ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.5, color='black', marker="None", label='Bridge axis')#,zorder=k+1)
 
         ax.grid(True)
@@ -542,18 +545,60 @@ def Nw_plots():
                    "$|\Delta_{rx}|_{max}$ $[\degree]$",
                    "$|\Delta_{ry}|_{max}$ $[\degree]$",
                    "$|\Delta_{rz}|_{max}$ $[\degree]$"]
+        my_down_arrow = np.array([[-90.0000,   5.8488],
+                                  [  0.0000, -86.5902],
+                                  [ 90.0000,   5.8488],
+                                  [ 30.0000,   5.8488],
+                                  [ 30.0000,  83.4098],
+                                  [-30.0000,  83.4098],
+                                  [-30.0000,   5.8488]])  # draw polyline in AUTOCAD and do LIST command (use REGION, MASSPROP and MOVE to get it centered at C.O.G)
+        my_up_arrow = np.array([[-90.0000, -5.8488],
+                                [0.0000, 86.5902],
+                                [90.0000, -5.8488],
+                                [30.0000, -5.8488],
+                                [30.0000, -83.4098],
+                                [-30.0000, -83.4098],
+                                [-30.0000, -5.8488]])  # obtained from AutoCAD, drawing a polyline and LIST command (use region and MASSPROP to get C.O.G)
+        ########## w.r.t. U ##########
         plt.figure(dpi=400)
         plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
-        for case in range(n_Nw_sw_cases):
+        for case in range(n_Nw_sw_cases): # n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
-            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker='x', s=10, alpha=0.7, c='orange', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=10, alpha=0.7, c='blue', label=label2)
+            beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
+            arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
         plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
         plt.ylabel(str_dof[dof])
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\sw_scatt_Nw_VS_Hw_dof_{dof}.png')
+        plt.savefig(rf'results\sw_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ########## w.r.t. BETA ##########
+        fig = plt.figure(dpi=400)
+        ax = fig.add_subplot(111, projection='polar')
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
+        for case in range(n_Nw_sw_cases):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
+            beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
+            # arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            # arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+        # Plotting brigde axis
+        bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
+        ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
+        plt.annotate(r'$\bar{\beta}_{RMS}$ [deg]', xycoords='figure fraction', xy=(0.56,0.12), rotation=23)
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)  # use with rectangular plot
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_scatt_wrtBeta_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
 
     ######################################################################################################
@@ -605,18 +650,44 @@ def Nw_plots():
                    "$\sigma_{rx, max}$ $[\degree]$",
                    "$\sigma_{ry, max}$ $[\degree]$",
                    "$\sigma_{rz, max}$ $[\degree]$"]
+        ########## w.r.t. U ##########
         plt.figure(dpi=400)
         plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
-            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker='x', s=10, alpha=0.7, c='orange', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=10, alpha=0.7, c='blue', label=label2)
+            beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
+            arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
         plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
         plt.ylabel(str_dof[dof])
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\buf_scatt_Nw_VS_Hw_dof_{dof}.png')
+        plt.savefig(rf'results\buf_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ########## w.r.t. BETA ##########
+        fig = plt.figure(dpi=400)
+        ax = fig.add_subplot(111, projection='polar')
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
+        for case in range(n_Nw_buf_cases):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+        # Plotting brigde axis
+        bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
+        ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
+        plt.annotate(r'$\bar{\beta}_{RMS}$ [deg]', xycoords='figure fraction', xy=(0.56,0.12), rotation=23)
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(rf'results\buf_scatt_wrtBeta_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
 
     ######################################################################################################
@@ -670,18 +741,44 @@ def Nw_plots():
                    r"$|\Delta_{rx}\/\pm\/k_p\times\sigma_{rx}|_{max} $ $[\degree]$",
                    r"$|\Delta_{ry}\/\pm\/k_p\times\sigma_{ry}|_{max} $ $[\degree]$",
                    r"$|\Delta_{rz}\/\pm\/k_p\times\sigma_{rz}|_{max} $ $[\degree]$"]
+        ########## w.r.t. U ##########
         plt.figure(dpi=400)
         plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
-            plt.scatter(Nw_U_bar_RMS[case], Nw_sw_plus_buf_absmax[case][dof], marker='x', s=10, alpha=0.7, c='orange', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], Hw_sw_plus_buf_absmax[case][dof], marker='o', s=10, alpha=0.7, c='blue', label=label2)
+            beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
+            arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(Nw_U_bar_RMS[case], Nw_sw_plus_buf_absmax[case][dof], marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(Hw_U_bar_RMS[case], Hw_sw_plus_buf_absmax[case][dof], marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
         plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
         plt.ylabel(str_dof[dof])
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
-        plt.savefig(rf'results\sw_buf_scatt_Nw_VS_Hw_dof_{dof}.png')
+        plt.savefig(rf'results\sw_buf_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ########## w.r.t. BETA ##########
+        fig = plt.figure(dpi=400)
+        ax = fig.add_subplot(111, projection='polar')
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
+        for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
+            label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
+            beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
+            plt.scatter(beta_DB_1_case, Nw_sw_plus_buf_absmax[case][dof], marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, Hw_sw_plus_buf_absmax[case][dof], marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+        # Plotting brigde axis
+        bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
+        ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
+        plt.annotate(r'$\bar{\beta}_{RMS}$ [deg]', xycoords='figure fraction', xy=(0.56,0.12), rotation=23)
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_buf_scatt_wrtBeta_Nw_VS_Hw_dof_{dof}.png')
         plt.show()
 
     ######################################################################################################

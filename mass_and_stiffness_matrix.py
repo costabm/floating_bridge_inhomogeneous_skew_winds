@@ -389,7 +389,7 @@ def stiff_matrix_12b_local_func(g_node_coor):
     g_elem_num = g_node_num - 1
 
     # Rotational Mass is assumed to be described by I0 = Iy + Iz and linmass. It would be correct if we only
-    # had self-weight (and no transverse stiffeners). Slightly incorrect for the super imposed dead loads.
+    # had self-weight (and no transverse stiffeners). Slightly incorrect for the superimposed dead loads.
     stiff_elem_loc = np.zeros((g_elem_num, 12, 12))
     stiff_elem_loc[:, 0, 0] = E * A / g_elem_L_3D
     stiff_elem_loc[:, 1, 1] = 12 * E * Iz / g_elem_L_3D ** 3

@@ -424,7 +424,18 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
 # Inhomogeneous wind
 ########################################################################################################################
 
-# Since it was a stupid idea to create a method _set_S_a(self, f_array), it is now duplicated here. (S_aa were too large to store for all Nw_cases...)
+def Nw_Hw_equiv_Ii_func(g_node_coor, Nw_Ii):
+    g_node_num = len(g_node_coor)
+    g_node_coor_z = g_node_coor[:, 2]  # m. Meters above sea level
+    g_nodes = np.array(list(range(g_node_num)))  # starting at 0
+    Iu = np.zeros(g_node_num)
+    for n in g_nodes:
+        Iu[n] = 1 / np.log(g_node_coor_z[n]/0.01)  # Design basis rev 0, 2018, Chapter 2.2
+    Iv = 0.84 * Iu  # Design basis rev 0, 2018, Chapter 2.2
+    Iw = 0.60 * Iu  # Design basis rev 0, 2018, Chapter 2.2
+    return np.transpose(np.array([Iu, Iv, Iw]))
+
+# Since it was a bad idea to create a method _set_S_a(self, f_array), it is now duplicated here. (S_aa were too large to store for all Nw_cases...)
 def Nw_S_a(g_node_coor, f_array, Nw_U_bar, Nw_Ii):
     """
     f_array and n_hat need to be in Hertz, not radians!
@@ -1395,10 +1406,8 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     if Nw_idx is None:
         S_aa_hertz = S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2)
     else:  # Inhomogeneous S_aa needs to be calculated in real time!! It is way too large to be stored for all Nw cases...
-        if Nw_or_equiv_Hw == 'Nw':
-            Nw_Ii = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_Ii'])
-        elif Nw_or_equiv_Hw == 'Hw':
-            Nw_Ii = Ii_func(g_node_coor, beta_DB, Ii_simplified)
+        Nw_Ii = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_Ii'])  # this loads either Nw_Ii or the equivalent Hw_Ii
+
         S_aa_hertz = Nw_S_aa(g_node_coor, beta_0, theta_0, f_array, U_bar, Nw_Ii, cospec_type=2)
 
     S_aa_radians = S_aa_hertz / (2*np.pi)  # not intuitive! S(f)*delta_f = S(w)*delta_w. See eq. (2.68) from Strommen.
