@@ -424,17 +424,6 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
 # Inhomogeneous wind
 ########################################################################################################################
 
-def Nw_Hw_equiv_Ii_func(g_node_coor, Nw_Ii):
-    g_node_num = len(g_node_coor)
-    g_node_coor_z = g_node_coor[:, 2]  # m. Meters above sea level
-    g_nodes = np.array(list(range(g_node_num)))  # starting at 0
-    Iu = np.zeros(g_node_num)
-    for n in g_nodes:
-        Iu[n] = 1 / np.log(g_node_coor_z[n]/0.01)  # Design basis rev 0, 2018, Chapter 2.2
-    Iv = 0.84 * Iu  # Design basis rev 0, 2018, Chapter 2.2
-    Iw = 0.60 * Iu  # Design basis rev 0, 2018, Chapter 2.2
-    return np.transpose(np.array([Iu, Iv, Iw]))
-
 # Since it was a bad idea to create a method _set_S_a(self, f_array), it is now duplicated here. (S_aa were too large to store for all Nw_cases...)
 def Nw_S_a(g_node_coor, f_array, Nw_U_bar, Nw_Ii):
     """
