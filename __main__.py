@@ -279,6 +279,7 @@ if run_new_Nw_sw:
     Nw_all.set_equivalent_Hw_beta(eqv_Hw_beta_method = 'U2_weighted_mean')
     Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='U_weighted_mean')
     Nw_all.plot_U(df_WRF_idx=-1)
+    Nw_all.plot_Ii_at_WRF_points()
 
     Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R_loc_all, Nw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.U_bar, Nw_all.beta_bar, Nw_all.theta_bar, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
     Hw_g_node_coor_all, Hw_p_node_coor_all, Hw_D_glob_all, Hw_D_loc_all, Hw_R_loc_all, Hw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.equiv_Hw_U_bar, Nw_all.equiv_Hw_beta_bar, Nw_all.equiv_Hw_theta_bar, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')

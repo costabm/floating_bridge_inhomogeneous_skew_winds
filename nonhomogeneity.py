@@ -214,6 +214,8 @@ def Nw_Iu_all_dirs_database(g_node_coor, model='ANN', use_existing_file=True):
             Iu_18m_ANN_preds = interpolate_from_WRF_nodes_to_g_nodes(Iu_18m_ANN_preds_WRF, g_node_coor, WRF_node_coor, plot=False)  # calculated at the girder nodes
             Iu_18m_ANN_preds = Iu_18m_ANN_preds.T
             # Storing
+            with open(r'intermediate_results\\Nw_Iu\\Iu_18m_ANN_preds.json', 'w', encoding='utf-8') as f:
+                json.dump(dict_Iu_18m_ANN_preds, f, ensure_ascii=False, indent=4)
             with open(r'intermediate_results\\Nw_Iu\\Iu_18m_ANN_preds_g_nodes.json', 'w', encoding='utf-8') as f:
                 json.dump(Iu_18m_ANN_preds.tolist(), f, ensure_ascii=False, indent=4)
         else:
@@ -742,14 +744,19 @@ class NwAllCases:
         plt.show()
         plt.close()
 
-    def plot_Ii_at_WRF_points(self):
+    def plot_Ii_at_WRF_points(self, z='18'):
+        """
+        z = height at which the Ii is estimated. Only '18' and '48' (meters) are available
+        """
         g_node_coor = self.g_node_coor  # shape (g_node_num,3)
         n_g_nodes = len(g_node_coor)
         lon_mosaic, lat_mosaic, imgs_mosaic = get_all_geotiffs_merged()
-        with open(r"intermediate_results\\Nw_Iu\\Iu_48m_ANN_preds.json") as f:
-            dict_Iu_48m_ANN_preds = json.loads(f.read())
-        with open(r"intermediate_results\\Nw_Iu\\Iu_48m_EN_preds.json") as f:
-            dict_Iu_48m_EN_preds = json.loads(f.read())
+        with open(r"intermediate_results\\Nw_Iu\\Iu_"+z+"m_ANN_preds.json") as f:
+            dict_Iu_ANN_preds = json.loads(f.read())
+        with open(r"intermediate_results\\Nw_Iu\\Iu_"+z+"m_EN_preds.json") as f:
+            dict_Iu_EN_preds = json.loads(f.read())
+        # with open(r"intermediate_results\\Nw_Iu\\Iu_48m_EN_preds.json") as f:
+        #     dict_Iu_48m_EN_preds = json.loads(f.read())
 
         # bj_coors_WRONG_OLD_METHOD = np.array([[-34449.260, 6699999.046],
         #                                       [-34244.818, 6700380.872],
@@ -809,12 +816,12 @@ class NwAllCases:
         # plt.legend()  # [handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
         plt.tight_layout(pad=0.05)
 
-        Iu_min_all_pts = np.min(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
-        Iu_max_all_pts = np.max(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_min_all_pts = np.min(np.array([dict_Iu_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_max_all_pts = np.max(np.array([dict_Iu_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
         # for pt_idx, pt in enumerate(bj_pt_strs):
         #     ########### WIND ROSES
-        #     wd = np.array(dict_Iu_48m_ANN_preds[pt]['sector'])
-        #     Iu = np.array(dict_Iu_48m_ANN_preds[pt]['Iu'])
+        #     wd = np.array(dict_Iu_ANN_preds[pt]['sector'])
+        #     Iu = np.array(dict_Iu_ANN_preds[pt]['Iu'])
         #     Iu_min = np.min(Iu)
         #     Iu_max = np.max(Iu)
         #     wrax[pt] = inset_axes(main_ax,
@@ -835,7 +842,7 @@ class NwAllCases:
         plt.show()
         plt.close()
 
-        # FIGURE 2, ZOOMED IN
+        # FIGURE 2, ZOOMED IN, FOR ANN PREDICTIONS
         lon_lims = [-35000, -32000]
         lat_lims = [6.6996E6, 6.705E6]
         lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
@@ -863,14 +870,18 @@ class NwAllCases:
         # plt.legend() #[handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
         # plt.tight_layout(pad=0.05)
 
-        Iu_min_all_pts = np.min(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
-        Iu_max_all_pts = np.max(np.array([dict_Iu_48m_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_min_all_pts_ANN = np.min(np.array([dict_Iu_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_max_all_pts_ANN = np.max(np.array([dict_Iu_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
+        Iu_min_all_pts_EN  = np.min(np.array([dict_Iu_EN_preds[pt]['Iu']  for pt in bj_pt_strs]))
+        Iu_max_all_pts_EN  = np.max(np.array([dict_Iu_EN_preds[pt]['Iu']  for pt in bj_pt_strs]))
+        Iu_min_all_pts = np.min([Iu_min_all_pts_ANN, Iu_min_all_pts_EN])
+        Iu_max_all_pts = np.max([Iu_max_all_pts_ANN, Iu_max_all_pts_EN])
         rose_radius = np.ones(11) * 0.4
         for pt_idx, pt in enumerate(bj_pt_strs):
             if True:  # pt_idx%10==0: # if point index is even:
                 ########### WIND ROSES
-                wd = np.array(dict_Iu_48m_ANN_preds[pt]['sector'])
-                Iu = np.array(dict_Iu_48m_ANN_preds[pt]['Iu'])
+                wd = np.array(dict_Iu_ANN_preds[pt]['sector'])
+                Iu = np.array(dict_Iu_ANN_preds[pt]['Iu'])
                 Iu_min = np.min(Iu)
                 Iu_max = np.max(Iu)
                 wrax[pt] = inset_axes(main_ax,
@@ -892,6 +903,54 @@ class NwAllCases:
         cb.set_label('$I_u$')
         main_ax.axis('off')
         plt.savefig('plots/ANN_preds_zoomin.png')
+        plt.show()
+        plt.close()
+
+        # FIGURE 2, ZOOMED IN. FOR EUROCODE PREDICTIONS
+        # cmap = copy.copy(plt.get_cmap('magma_r'))
+        cmap = copy.copy(plt.get_cmap('binary'))
+        imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
+        cmap.set_bad(color='skyblue')  # color where height == 0
+        plt.figure(dpi=400)
+        plt.title('EN predictions of $I_u$')
+        bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
+                 lat_mosaic_crop.min(), lat_mosaic_crop.max()))
+        imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
+        main_ax = plt.gca()
+        wrax = {}
+        # for pt_idx, pt in enumerate(bj_pt_strs):
+        #     plt.scatter(bj_coors[pt_idx][0], bj_coors[pt_idx][1], marker='o', facecolors='black', edgecolors='black', s=10, label='Measurement location' if pt==0 else None)
+        plt.xlabel('Easting [m]')
+        plt.ylabel('Northing [m]')
+        # plt.legend() #[handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
+        # plt.tight_layout(pad=0.05)
+        rose_radius = np.ones(11) * 0.4
+        for pt_idx, pt in enumerate(bj_pt_strs):
+            if True:  # pt_idx%10==0: # if point index is even:
+                ########### WIND ROSES
+                wd = np.array(dict_Iu_EN_preds[pt]['sector'])
+                Iu = np.array(dict_Iu_EN_preds[pt]['Iu'])
+                Iu_min = np.min(Iu)
+                Iu_max = np.max(Iu)
+                wrax[pt] = inset_axes(main_ax,
+                                      width=rose_radius[pt_idx],  # size in inches
+                                      height=rose_radius[pt_idx],  # size in inches
+                                      loc='center',  # center bbox at given position
+                                      bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
+                                      bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
+                                      axes_class=WindroseAxes)  # specify the class of the axe
+                # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+                # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+                wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+                                                                                      (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
+                wrax[pt].tick_params(labelleft=False, labelbottom=False)
+                wrax[pt].patch.set_alpha(0)
+                wrax[pt].axis('off')
+
+        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
+        cb.set_label('$I_u$')
+        main_ax.axis('off')
+        plt.savefig('plots/EN_preds_zoomin.png')
         plt.show()
         plt.close()
 

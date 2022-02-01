@@ -523,7 +523,7 @@ def Nw_plots():
                    "$\Delta_{ry}$ $[\degree]$",
                    "$\Delta_{rz}$ $[\degree]$"]
         plt.figure(dpi=400)
-        plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
+        plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
         for case in range(n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label1)
@@ -564,7 +564,7 @@ def Nw_plots():
                                 [-30.0000, -5.8488]])  # obtained from AutoCAD, drawing a polyline and LIST command (use region and MASSPROP to get C.O.G)
         ########## w.r.t. U ##########
         plt.figure(dpi=400)
-        plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
+        plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
         for case in range(n_Nw_sw_cases): # n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
@@ -584,7 +584,7 @@ def Nw_plots():
         ax = fig.add_subplot(111, projection='polar')
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        plt.title(f'Static wind response ({n_Nw_sw_cases} worst storms)')
+        plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
         for case in range(n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
@@ -630,7 +630,7 @@ def Nw_plots():
                    "$\sigma_{ry}$ $[\degree]$",
                    "$\sigma_{rz}$ $[\degree]$"]
         plt.figure(dpi=400)
-        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
+        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             plt.plot(x, func(std_delta_local['Nw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label1)
@@ -655,7 +655,7 @@ def Nw_plots():
                    "$\sigma_{rz, max}$ $[\degree]$"]
         ########## w.r.t. U ##########
         plt.figure(dpi=400)
-        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
+        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
@@ -675,7 +675,7 @@ def Nw_plots():
         ax = fig.add_subplot(111, projection='polar')
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst storms)')
+        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
@@ -716,7 +716,7 @@ def Nw_plots():
                    r"$\Delta_{ry}\/\pm\/k_p\times\sigma_{ry} $ $[\degree]$",
                    r"$\Delta_{rz}\/\pm\/k_p\times\sigma_{rz} $ $[\degree]$"]
         plt.figure(dpi=400)
-        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
+        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
 
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
@@ -746,7 +746,7 @@ def Nw_plots():
                    r"$|\Delta_{rz}\/\pm\/k_p\times\sigma_{rz}|_{max} $ $[\degree]$"]
         ########## w.r.t. U ##########
         plt.figure(dpi=400)
-        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
+        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
@@ -766,7 +766,7 @@ def Nw_plots():
         ax = fig.add_subplot(111, projection='polar')
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst storms)')
+        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
@@ -899,7 +899,7 @@ def Nw_plots():
                 axes[1].quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.02, headlength=3, headaxislength=3)
 
                 cbar2 = fig.colorbar(sm2, cax=None, fraction=0.097, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
-                cbar2.set_label('Iu')
+                cbar2.set_label('$I_u$')
                 cbar = fig.colorbar(sm, cax=None, fraction=0.097, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible. Good values for 1 colorbar: fraction=0.078, pad=0.076
                 cbar.set_label('U [m/s]')
                 fig.supxlabel('Longitude [$\degree$]', x=0.41, y=0.03)
@@ -952,7 +952,7 @@ Nw_plots()
 #     if dof >= 3:
 #         Nw_y, Hw_y = deg(Nw_y), deg(Hw_y)
 #     plt.figure(figsize=(5,5), dpi=300)
-#     plt.title(f'Buffeting response ({n_Nw_idxs} worst storms)')
+#     plt.title(f'Buffeting response ({n_Nw_idxs} worst 1h-events)')
 #     plt.scatter(Nw_x, Nw_y, marker='x', s=10, alpha=0.7, c='orange', label='Inhomogeneous')
 #     plt.scatter(Hw_x, Hw_y, marker='o', s=10, alpha=0.7, c='blue', label='Homogeneous')
 #     plt.ylabel(str_dof[dof])
