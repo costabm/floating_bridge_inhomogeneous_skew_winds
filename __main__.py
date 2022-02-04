@@ -275,7 +275,7 @@ if run_new_Nw_sw:
 
     Nw_all.set_structure(g_node_coor, p_node_coor, alpha)
     Nw_all.set_Nw_wind(n_Nw_cases=n_Nw_cases, force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, f_array='static_wind_only')
-    Nw_all.set_equivalent_Hw_U_bar(force_Nw_U_bar_and_U_bar_to_have_same='energy')
+    Nw_all.set_equivalent_Hw_U_bar(force_Nw_U_bar_and_U_bar_to_have_same='quadratic_vector_mean')
     Nw_all.set_equivalent_Hw_beta(eqv_Hw_beta_method = 'U2_weighted_mean')
     Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='U_weighted_mean')
     Nw_all.plot_U(df_WRF_idx=-1)

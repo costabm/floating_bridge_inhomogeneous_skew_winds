@@ -655,17 +655,27 @@ class NwAllCases:
             self.S_aa.append(Nw_temp.S_aa)
         self._convert_attributes_from_lists_to_arrs()
 
-    def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='energy'):
+    def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='quadratic_vector_mean'):
         """
         Nw_U_bar shape: (n_cases, n_nodes)
         Returns a homogeneous wind velocity field, equivalent to the input Nw_U_bar in terms of force_Nw_U_bar_and_U_bar_to_have_same
-        force_Nw_U_bar_and_U_bar_to_have_same: None, 'mean', 'energy'. force the U_bar_equivalent to have the same mean or energy 1 as Nw_U_bar
+        force_Nw_U_bar_and_U_bar_to_have_same:
+            'quadratic_vector_mean': component-wise quadratic mean on inhomogeneous vectors. If Nw_U is only 2 vectors, 1 from N, 1 from S, they cancel out
+            None: Gets U from N400
+            'mean', 'energy'. force the U_bar_equivalent to have the same mean or energy 1 as Nw_U_bar
         """
         assert self.U_bar is not None
         assert self.g_node_coor is not None
         g_node_coor = self.g_node_coor
         Nw_U_bar = self.U_bar
-        if force_Nw_U_bar_and_U_bar_to_have_same is None:
+
+        if force_Nw_U_bar_and_U_bar_to_have_same == 'quadratic_vector_mean':
+            Nw_U_Lw = np.array([Nw_U_bar, np.zeros(Nw_U_bar.shape), np.zeros(Nw_U_bar.shape)])  # shape(3, n_storms, n_nodes)
+
+
+            pass
+
+        elif force_Nw_U_bar_and_U_bar_to_have_same is None:
             U_bar_equivalent = U_bar_func(g_node_coor)
         elif force_Nw_U_bar_and_U_bar_to_have_same == 'mean':
             U_bar_equivalent = np.ones(Nw_U_bar.shape) * np.mean(Nw_U_bar, axis=1)[:, None]
