@@ -655,44 +655,61 @@ class NwAllCases:
             self.S_aa.append(Nw_temp.S_aa)
         self._convert_attributes_from_lists_to_arrs()
 
-    def set_equivalent_Hw_U_bar(self, force_Nw_U_bar_and_U_bar_to_have_same='quadratic_vector_mean'):
+    def set_equivalent_Hw_U_bar_and_beta(self, U_method='quadratic_vector_mean', beta_method='quadratic_vector_mean'):
         """
         Nw_U_bar shape: (n_cases, n_nodes)
         Returns a homogeneous wind velocity field, equivalent to the input Nw_U_bar in terms of force_Nw_U_bar_and_U_bar_to_have_same
-        force_Nw_U_bar_and_U_bar_to_have_same:
+        U_method:
             'quadratic_vector_mean': component-wise quadratic mean on inhomogeneous vectors. If Nw_U is only 2 vectors, 1 from N, 1 from S, they cancel out
             None: Gets U from N400
-            'mean', 'energy'. force the U_bar_equivalent to have the same mean or energy 1 as Nw_U_bar
+            'linear_mean'
+            'quadratic_mean'. force the U_bar_equivalent to have the same mean or energy as Nw_U_bar
+        beta_method:
+            'quadratic_vector_mean': then U_method also needs to be 'quadratic_vector_mean'
+            'mean'
+            'U_weighted_mean'
+            'U2_weighted_mean'
         """
         assert self.U_bar is not None
         assert self.g_node_coor is not None
         g_node_coor = self.g_node_coor
+        n_g_nodes = g_node_coor.shape[0]
         Nw_U_bar = self.U_bar
-
-        if force_Nw_U_bar_and_U_bar_to_have_same == 'quadratic_vector_mean':
-            Nw_U_Lw = np.array([Nw_U_bar, np.zeros(Nw_U_bar.shape), np.zeros(Nw_U_bar.shape)])  # shape(3, n_storms, n_nodes)
-
-
-            pass
-
-        elif force_Nw_U_bar_and_U_bar_to_have_same is None:
-            U_bar_equivalent = U_bar_func(g_node_coor)
-        elif force_Nw_U_bar_and_U_bar_to_have_same == 'mean':
-            U_bar_equivalent = np.ones(Nw_U_bar.shape) * np.mean(Nw_U_bar, axis=1)[:, None]
-            assert all(np.isclose(np.mean(Nw_U_bar, axis=1)[:, None], np.mean(U_bar_equivalent, axis=1)[:, None]))
-        elif force_Nw_U_bar_and_U_bar_to_have_same == 'energy':
-            U_bar_equivalent = np.ones(Nw_U_bar.shape) * np.sqrt(np.mean(Nw_U_bar ** 2, axis=1)[:, None])
-            assert all(np.isclose(np.mean(Nw_U_bar ** 2, axis=1)[:, None], np.mean(U_bar_equivalent ** 2, axis=1)[:, None]))  # same energy = same mean(U**2))
-        self.equiv_Hw_U_bar = U_bar_equivalent
-
-    def set_equivalent_Hw_beta(self, eqv_Hw_beta_method = 'U2_weighted_mean'):
-        """eqv_Hw_beta_method: 'mean' or 'U_weighted_mean' or 'U2_weighted_mean'"""
-        g_node_coor = self.g_node_coor
-        g_node_num = g_node_coor.shape[0]
         n_Nw_cases = self.n_Nw_cases
-        Hw_beta_0_all = equivalent_Hw_beta_0_all(Nw_U_bar=self.U_bar, Nw_beta_0=self.beta_0, g_node_num=g_node_num, eqv_Hw_beta_method=eqv_Hw_beta_method)
-        Hw_theta_0_all = np.zeros((n_Nw_cases, g_node_num))
+
+        if U_method == 'quadratic_vector_mean' or beta_method == 'quadratic_vector_mean':
+            assert beta_method == U_method, "If either U_method or beta_method are 'quadratic_vector_mean', then both need to be!"
+            n_g_nodes = len(g_node_coor)
+            Nw_beta_0 = self.beta_0
+            Nw_theta_0 = self.theta_0
+            Nw_U2_Nw = np.array([Nw_U_bar**2, np.zeros(Nw_U_bar.shape), np.zeros(Nw_U_bar.shape)])  # shape(3, n_storms, n_nodes)
+            # NOTE: the **2 operation is done before the transformation T_GsNw and the sqrt() operation is only done at the very end to get the magnitude
+            T_GsNw = T_GsNw_func(Nw_beta_0, Nw_theta_0, dim='3x3')  # shape(n_storms, n_nodes, 3, 3)
+            Nw_U2_Gs = np.einsum('snij,jsn->sni', T_GsNw, Nw_U2_Nw)  # shape(n_storms, n_nodes, 3)
+            Hw_U2_Gs = np.array([[np.mean(Nw_U2_Gs[:,:,0], axis=1)],
+                                 [np.mean(Nw_U2_Gs[:,:,1], axis=1)],
+                                 [np.mean(Nw_U2_Gs[:,:,2], axis=1)]]).squeeze()  # shape(3, n_storms)
+            Hw_U2_bar_all = np.sqrt(Hw_U2_Gs[0]**2 + Hw_U2_Gs[1]**2 + Hw_U2_Gs[2]**2)  # Vector magnitudes. shape(n_storms)
+            Hw_U2_bar_all = np.repeat(Hw_U2_bar_all[:,np.newaxis], n_g_nodes, axis=1)   # Vector magnitudes. shape(n_storms,  n_nodes). Homogeneous, so equal for all points
+            Hw_U_bar_all = np.sqrt(Hw_U2_bar_all)
+            Hw_beta_0_all = np.arctan2(-Hw_U2_Gs[0], Hw_U2_Gs[1])  # shape(n_storms). see. eq. 17 of our first paper. shape(n_storms,  n_nodes)
+            Hw_beta_0_all = np.repeat(Hw_beta_0_all[:,np.newaxis], n_g_nodes, axis=1)  # shape(n_storms, n_nodes)
+
+        elif U_method is None:
+            Hw_U_bar_all = U_bar_func(g_node_coor)
+        elif U_method == 'linear_mean':
+            Hw_U_bar_all = np.ones(Nw_U_bar.shape) * np.mean(Nw_U_bar, axis=1)[:, None]
+            assert all(np.isclose(np.mean(Nw_U_bar, axis=1)[:, None], np.mean(Hw_U_bar_all, axis=1)[:, None]))
+        elif U_method == 'quadratic_mean':
+            Hw_U_bar_all = np.ones(Nw_U_bar.shape) * np.sqrt(np.mean(Nw_U_bar ** 2, axis=1)[:, None])  # shape (n_storms,n_nodes)
+            assert all(np.isclose(np.mean(Nw_U_bar ** 2, axis=1)[:, None], np.mean(Hw_U_bar_all ** 2, axis=1)[:, None]))  # same energy = same mean(U**2))
+
+        if beta_method is not 'quadratic_vector_mean':
+            Hw_beta_0_all = equivalent_Hw_beta_0_all(Nw_U_bar=self.U_bar, Nw_beta_0=self.beta_0, g_node_num=n_g_nodes, eqv_Hw_beta_method=beta_method)
+
+        Hw_theta_0_all = np.zeros((n_Nw_cases, n_g_nodes))
         Hw_beta_bar_all, Hw_theta_bar_all = Nw_beta_and_theta_bar_func(g_node_coor, Hw_beta_0_all, Hw_theta_0_all, self.alpha)
+        self.equiv_Hw_U_bar = Hw_U_bar_all
         self.equiv_Hw_beta_0 = Hw_beta_0_all
         self.equiv_Hw_theta_0 = Hw_theta_0_all
         self.equiv_Hw_beta_bar = Hw_beta_bar_all
