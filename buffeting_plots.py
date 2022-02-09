@@ -504,6 +504,12 @@ def Nw_plots():
             Hw_D_loc.append(np.array(Nw_dict_all[i]['Hw_D_loc']))
             Nw_Ii.append(np.array(Nw_dict_all[i]['Nw_Ii']))
             Hw_Ii.append(np.array(Nw_dict_all[i]['Hw_Ii']))
+    Nw_U_bar = np.array(Nw_U_bar)
+    Hw_U_bar = np.array(Hw_U_bar)
+    Nw_Ii = np.array(Nw_Ii)
+    Hw_Ii = np.array(Hw_Ii)
+    Nw_beta_DB = beta_DB_func(np.array(Nw_beta_0))
+    Hw_beta_DB = beta_DB_func(np.array(Hw_beta_0))
 
     def func(x, dof):
         """converts results in radians to degrees, if dof is an angle"""
@@ -523,7 +529,7 @@ def Nw_plots():
                    "$\Delta_{ry}$ $[\degree]$",
                    "$\Delta_{rz}$ $[\degree]$"]
         plt.figure(dpi=400)
-        plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
+        # plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
         for case in range(n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             plt.plot(x, func(Nw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label1)
@@ -534,7 +540,7 @@ def Nw_plots():
         plt.plot(x, func(np.min(np.array([Hw_D_loc[case][:n_g_nodes, dof] for case in range(n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3)
         plt.xlabel('x [m]  (Position along the arc)')
         plt.ylabel(str_dof[dof])
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
         plt.savefig(rf'results\sw_lines_Nw_VS_Hw_dof_{dof}.png')
@@ -564,17 +570,17 @@ def Nw_plots():
                                 [-30.0000, -5.8488]])  # obtained from AutoCAD, drawing a polyline and LIST command (use region and MASSPROP to get C.O.G)
         ########## w.r.t. U ##########
         plt.figure(dpi=400)
-        plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
+        # plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
         for case in range(n_Nw_sw_cases): # n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
             arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
             arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
-            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
-        plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+            plt.scatter(Hw_U_bar[case,0], func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(Hw_U_bar[case,0], func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+        plt.xlabel(r'$U^H$ [m/s]')
         plt.ylabel(str_dof[dof])
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
         plt.savefig(rf'results\sw_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
@@ -584,20 +590,22 @@ def Nw_plots():
         ax = fig.add_subplot(111, projection='polar')
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
+        # plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
         for case in range(n_Nw_sw_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None, None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
             # arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
             # arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
-            plt.scatter(beta_DB_1_case, func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
-            plt.scatter(beta_DB_1_case, func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=Hw_U_bar[case,0]*3-np.min(Hw_U_bar[:,0])*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=Hw_U_bar[case,0]*3-np.min(Hw_U_bar[:,0])*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
         # Plotting brigde axis
         bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
         ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
-        plt.annotate(r'$\bar{\beta}_{RMS}$ [deg]', xycoords='figure fraction', xy=(0.56,0.12), rotation=23)
-        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.54,0.115), rotation=23)
+        plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.555, 0.055), rotation=22)  # use without legend
+        # plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.585, 0.920))  # use without legend
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
         # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)  # use with rectangular plot
         plt.grid(True)
         plt.tight_layout()
@@ -630,7 +638,7 @@ def Nw_plots():
                    "$\sigma_{ry}$ $[\degree]$",
                    "$\sigma_{rz}$ $[\degree]$"]
         plt.figure(dpi=400)
-        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        # plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             plt.plot(x, func(std_delta_local['Nw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label1)
@@ -639,7 +647,7 @@ def Nw_plots():
         plt.plot(x, func(np.max(np.array([std_delta_local['Hw'][case,:, dof] for case in range(n_Nw_buf_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3, label=f'Homogeneous (max.)')
         plt.xlabel('x [m]  (Position along the arc)')
         plt.ylabel(str_dof[dof])
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
         plt.savefig(rf'results\buf_lines_Nw_VS_Hw_dof_{dof}.png')
@@ -655,17 +663,17 @@ def Nw_plots():
                    "$\sigma_{rz, max}$ $[\degree]$"]
         ########## w.r.t. U ##########
         plt.figure(dpi=400)
-        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        # plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
             arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
             arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
-            plt.scatter(Nw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
-        plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+            plt.scatter(Hw_U_bar[case,0], func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(Hw_U_bar[case,0], func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+        plt.xlabel(r'$U^H$ [m/s]')
         plt.ylabel(str_dof[dof])
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
         plt.savefig(rf'results\buf_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
@@ -675,18 +683,20 @@ def Nw_plots():
         ax = fig.add_subplot(111, projection='polar')
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        # plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(n_Nw_buf_cases):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
-            plt.scatter(beta_DB_1_case, func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
-            plt.scatter(beta_DB_1_case, func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(std_delta_local['Nw'][case,:, dof])), dof), marker='o', s=Hw_U_bar[case,0]*3-np.min(Hw_U_bar[:,0])*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=Hw_U_bar[case,0]*3-np.min(Hw_U_bar[:,0])*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
         # Plotting brigde axis
         bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
         ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
-        plt.annotate(r'$\bar{\beta}_{RMS}$ [deg]', xycoords='figure fraction', xy=(0.56,0.12), rotation=23)
-        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.54,0.115), rotation=23)
+        plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.555, 0.055), rotation=22)  # use without legend
+        # plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.585, 0.920))  # use without legend
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
         # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid(True)
         plt.tight_layout()
@@ -716,7 +726,7 @@ def Nw_plots():
                    r"$\Delta_{ry}\/\pm\/k_p\times\sigma_{ry} $ $[\degree]$",
                    r"$\Delta_{rz}\/\pm\/k_p\times\sigma_{rz} $ $[\degree]$"]
         plt.figure(dpi=400)
-        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        # plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
 
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
@@ -730,7 +740,7 @@ def Nw_plots():
         plt.plot(x, np.min(Hw_sw_minus_buf[:,:,dof], axis=0), alpha=0.7, c='blue', lw=3)
         plt.xlabel('x [m]  (Position along the arc)')
         plt.ylabel(str_dof[dof])
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
         plt.savefig(rf'results\sw_buf_lines_Nw_VS_Hw_dof_{dof}.png')
@@ -746,17 +756,17 @@ def Nw_plots():
                    r"$|\Delta_{rz}\/\pm\/k_p\times\sigma_{rz}|_{max} $ $[\degree]$"]
         ########## w.r.t. U ##########
         plt.figure(dpi=400)
-        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        # plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
             arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
             arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
-            plt.scatter(Nw_U_bar_RMS[case], Nw_sw_plus_buf_absmax[case][dof], marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
-            plt.scatter(Hw_U_bar_RMS[case], Hw_sw_plus_buf_absmax[case][dof], marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
-        plt.xlabel(r'$\bar{U}_{RMS}$ [m/s]')
+            plt.scatter(Hw_U_bar[case,0], Nw_sw_plus_buf_absmax[case][dof], marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(Hw_U_bar[case,0], Hw_sw_plus_buf_absmax[case][dof], marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+        plt.xlabel(r'$U^H$ [m/s]')
         plt.ylabel(str_dof[dof])
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid()
         plt.tight_layout()
         plt.savefig(rf'results\sw_buf_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
@@ -766,18 +776,20 @@ def Nw_plots():
         ax = fig.add_subplot(111, projection='polar')
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        # plt.title(f'Static + buffeting response ({n_Nw_buf_cases} worst 1h-events)')
         for case in range(min(n_Nw_sw_cases, n_Nw_buf_cases)):
             label1, label2 = ('Inhomogeneous (all cases)', 'Homogeneous (all cases)') if case == 0 else (None,None)
             beta_DB_1_case = beta_DB_func(Hw_beta_0[case][0])
-            plt.scatter(beta_DB_1_case, Nw_sw_plus_buf_absmax[case][dof], marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
-            plt.scatter(beta_DB_1_case, Hw_sw_plus_buf_absmax[case][dof], marker='o', s=Hw_U_bar_RMS[case]*3-np.min(Hw_U_bar_RMS)*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+            plt.scatter(beta_DB_1_case, Nw_sw_plus_buf_absmax[case][dof], marker='o', s=Hw_U_bar[case,0]*3-np.min(Hw_U_bar[:,0])*3+3, alpha=0.4, c='orange', edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, Hw_sw_plus_buf_absmax[case][dof], marker='o', s=Hw_U_bar[case,0]*3-np.min(Hw_U_bar[:,0])*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
         # Plotting brigde axis
         bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
         ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
-        plt.annotate(r'$\bar{\beta}_{RMS}$ [deg]', xycoords='figure fraction', xy=(0.56,0.12), rotation=23)
-        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.54,0.115), rotation=23)  # use with legend
+        plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.555, 0.055), rotation=22)  # use without legend
+        # plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))   # use with legend
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.585, 0.920))  # use without legend
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
         # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
         plt.grid(True)
         plt.tight_layout()
@@ -810,12 +822,6 @@ def Nw_plots():
                               'buf': Hw_buf_maxs_argsorts,
                               'sw_buf': Hw_sw_buf_maxs_argsorts}}
     ######################################################################################################
-    Nw_U_bar = np.array(Nw_U_bar)
-    Hw_U_bar = np.array(Hw_U_bar)
-    Nw_Ii = np.array(Nw_Ii)
-    Hw_Ii = np.array(Hw_Ii)
-    Nw_beta_DB = beta_DB_func(np.array(Nw_beta_0))
-    Hw_beta_DB = beta_DB_func(np.array(Hw_beta_0))
     lats_bridge, lons_bridge = bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes=n_g_nodes).T
 
     ordinal = lambda n: "%d%s" % (n, "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])  # just a function to convert int to an ordinal string. e.g. 1->'1st'
@@ -887,8 +893,7 @@ def Nw_plots():
                 plt.xlim(5.35, 5.41)
                 plt.ylim(60.077, 60.135)
                 fig.suptitle(f'{ordinal(rank_to_plot+1)} 1-hour inhomog. wind event that maximizes {str_dof[analysis_type][dof]}', y=0.97)
-                title_list = [fr'Inhomog. wind', fr'Equiv. homog. wind']
-
+                title_list = [r'Inhomog. wind', r'Equiv. homog. wind'] #[r'Inhomog. wind $\it{U^I}$', r'Equiv. homog. wind $\it{U^H}$'] #   [r'Inhomog. wind $\it{\bf{U^I}}$', r'Equiv. homog. wind $\it{\bf{U^H}}$']
                 axes[0].set_title(title_list[0])
                 axes[1].set_title(title_list[1])
                 axes[0].set_aspect(lat_lon_aspect_ratio, adjustable='box')
@@ -897,7 +902,6 @@ def Nw_plots():
                 axes[0].quiver(*np.array([lons_bridge, lats_bridge]), -Nw_ws_to_plot * np.sin(Nw_wd_to_plot), -Nw_ws_to_plot * np.cos(Nw_wd_to_plot), color=cm(norm(Nw_ws_to_plot)), angles='uv', scale=100, width=0.02, headlength=3, headaxislength=3)
                 axes[1].scatter(*np.array([lons_bridge, lats_bridge]), color=cm2(norm2(Hw_Iu_to_plot)), s=normalize(Hw_Iu_to_plot, old_bounds=[Iu_min, Iu_max], new_bounds=[15, 160]))
                 axes[1].quiver(*np.array([lons_bridge, lats_bridge]), -Hw_ws_to_plot * np.sin(Hw_wd_to_plot), -Hw_ws_to_plot * np.cos(Hw_wd_to_plot), color=cm(norm(Hw_ws_to_plot)), angles='uv', scale=100, width=0.02, headlength=3, headaxislength=3)
-
                 cbar2 = fig.colorbar(sm2, cax=None, fraction=0.097, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible
                 cbar2.set_label('$I_u$')
                 cbar = fig.colorbar(sm, cax=None, fraction=0.097, pad=0.076)  # play with these values until the colorbar has good size and the entire plot and axis labels is visible. Good values for 1 colorbar: fraction=0.078, pad=0.076

@@ -111,6 +111,11 @@ def beta_DB_func(beta_0):
     beta_DB = np.where(beta_DB<0, rad(180) + (rad(180) - np.abs(beta_DB)), beta_DB)
     return beta_DB
 
+def beta_DB_func_2(beta_0):
+    assert np.max(beta_0) <= rad(180)
+    assert np.min(beta_0) >= rad(-180)
+    return np.where(np.logical_and(rad(-180) < beta_0, beta_0 <= rad(100)), rad(100) - beta_0, rad(460) - beta_0)
+
 def U_bar_func(g_node_coor, RP=RP):
     """ 10min mean wind """  #
     g_node_coor_z = g_node_coor[:, 2]  # m. Meters above sea level
