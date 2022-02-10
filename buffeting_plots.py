@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import scipy.stats
 from buffeting import beta_DB_func
 from create_minigrid_data_from_raw_WRF_500_data import lat_lon_aspect_ratio, bridge_WRF_nodes_coor_func
 from nonhomogeneity import NwOneCase, NwAllCases, equivalent_Hw_beta_0_all
@@ -476,8 +477,171 @@ def time_domain_plots():
 # time_domain_plots()
 
 
+def Nw_tables():
+    """Inhomogeneous wind static & buffeting response tables"""
+    n_g_nodes = len(g_node_coor)
+    # Getting the Nw wind properties into the same df
+    my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind')
+    n_Nw_sw_cases = len(os.listdir(my_Nw_path))
+    Nw_dict_all, Nw_D_loc, Hw_D_loc, Nw_U_bar_RMS, Nw_U_bar, Hw_U_bar, Hw_U_bar_RMS, Nw_beta_0,  Hw_beta_0, Nw_Ii, Hw_Ii = [],[],[],[],[],[],[],[],[],[],[]  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(n_Nw_sw_cases):
+        Nw_path = os.path.join(my_Nw_path, f'Nw_dict_{i}.json')
+        with open(Nw_path, 'r') as f:
+            Nw_dict_all.append(json.load(f))
+            Nw_U_bar.append(np.array(Nw_dict_all[i]['Nw_U_bar']))
+            Hw_U_bar.append(np.array(Nw_dict_all[i]['Hw_U_bar']))
+            Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Nw_U_bar'])**2)))
+            Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(Nw_dict_all[i]['Hw_U_bar'])**2)))
+            Nw_beta_0.append(np.array(Nw_dict_all[i]['Nw_beta_0']))
+            Hw_beta_0.append(np.array(Nw_dict_all[i]['Hw_beta_0']))
+            Nw_D_loc.append(np.array(Nw_dict_all[i]['Nw_D_loc']))
+            Hw_D_loc.append(np.array(Nw_dict_all[i]['Hw_D_loc']))
+            Nw_Ii.append(np.array(Nw_dict_all[i]['Nw_Ii']))
+            Hw_Ii.append(np.array(Nw_dict_all[i]['Hw_Ii']))
+
+    def func(x, dof):
+        """converts results in radians to degrees, if dof is an angle"""
+        if dof >= 3:
+            return deg(x)
+        else:
+            return x
+
+    ###################### BUFFETING #############################
+    # Getting the Nw wind properties into the same df
+    my_Nw_buf_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting')
+    n_Nw_buf_cases = np.max([int(''.join(i for i in f if i.isdigit())) for f in os.listdir(my_Nw_buf_path)]) + 1  # use +1 to count for the 0.
+    std_delta_local = {'Nw':np.nan*np.zeros((n_Nw_buf_cases, n_g_nodes, 6)),
+                       'Hw':np.nan*np.zeros((n_Nw_buf_cases, n_g_nodes, 6)),}  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(n_Nw_buf_cases):
+        Nw_path = os.path.join(my_Nw_buf_path, f'Nw_buffeting_{i}.json')
+        Hw_path = os.path.join(my_Nw_buf_path, f'Hw_buffeting_{i}.json')
+        with open(Nw_path, 'r') as f:
+            std_delta_local['Nw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+        with open(Hw_path, 'r') as f:
+            std_delta_local['Hw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+
+
+    dof_lst = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+    my_table = pd.DataFrame(columns=['Name', 'Mean', 'STD', 'Min', 'Max'])
+    my_table2 = pd.DataFrame(columns=['Name', 'Min', 'P10', 'P50', 'P90', 'Max'])
+
+    sw_str_dof = ["$|\Delta_x|_{max}$ $[m]$",
+                  "$|\Delta_y|_{max}$ $[m]$",
+                  "$|\Delta_z|_{max}$ $[m]$",
+                  "$|\Delta_{rx}|_{max}$ $[\degree]$",
+                  "$|\Delta_{ry}|_{max}$ $[\degree]$",
+                  "$|\Delta_{rz}|_{max}$ $[\degree]$"]
+    buf_str_dof = ["$\sigma_{x, max}$ $[m]$",
+                   "$\sigma_{y, max}$ $[m]$",
+                   "$\sigma_{z, max}$ $[m]$",
+                   "$\sigma_{rx, max}$ $[\degree]$",
+                   "$\sigma_{ry, max}$ $[\degree]$",
+                   "$\sigma_{rz, max}$ $[\degree]$"]
+
+    for dof in [1, 2, 3]:
+        # TABLE 1
+        # Static wind
+        sw_Nw_max_D_loc = np.array([func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
+        sw_Hw_max_D_loc = np.array([func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
+        sw_Nw_Hw_ratio_max_D_loc = sw_Nw_max_D_loc / sw_Hw_max_D_loc
+        my_table = my_table.append({'Name': f'Sw_Nw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Nw_max_D_loc)), 'STD': str(np.std(sw_Nw_max_D_loc)), 'Min': str(np.min(sw_Nw_max_D_loc)), 'Max': str(np.max(sw_Nw_max_D_loc))}, ignore_index=True)
+        my_table = my_table.append({'Name': f'Sw_Hw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Hw_max_D_loc)), 'STD': str(np.std(sw_Hw_max_D_loc)), 'Min': str(np.min(sw_Hw_max_D_loc)), 'Max': str(np.max(sw_Hw_max_D_loc))}, ignore_index=True)
+        my_table = my_table.append({'Name': f'Sw_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(sw_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(sw_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(sw_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
+        # Buffeting
+        buf_Nw_max_D_loc = np.array([func(np.max(np.abs(std_delta_local['Nw'][case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
+        buf_Hw_max_D_loc = np.array([func(np.max(np.abs(std_delta_local['Hw'][case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
+        buf_Nw_Hw_ratio_max_D_loc = buf_Nw_max_D_loc / buf_Hw_max_D_loc
+        my_table = my_table.append({'Name': f'Buf_Nw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_max_D_loc)), 'STD': str(np.std(buf_Nw_max_D_loc)), 'Min': str(np.min(buf_Nw_max_D_loc)), 'Max': str(np.max(buf_Nw_max_D_loc))}, ignore_index=True)
+        my_table = my_table.append({'Name': f'Buf_Hw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Hw_max_D_loc)), 'STD': str(np.std(buf_Hw_max_D_loc)), 'Min': str(np.min(buf_Hw_max_D_loc)), 'Max': str(np.max(buf_Hw_max_D_loc))}, ignore_index=True)
+        my_table = my_table.append({'Name': f'Buf_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(buf_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(buf_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(buf_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
+        # TABLE 2
+        # Static wind
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [     f'Sw_Nw_{dof_lst[dof]}'] + np.percentile(          sw_Nw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [     f'Sw_Hw_{dof_lst[dof]}'] + np.percentile(          sw_Hw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [ f'Sw_NwByHw_{dof_lst[dof]}'] + np.percentile( sw_Nw_Hw_ratio_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+        # Buffeting
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [    f'Buf_Nw_{dof_lst[dof]}'] + np.percentile(         buf_Nw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [    f'Buf_Hw_{dof_lst[dof]}'] + np.percentile(         buf_Hw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [f'Buf_NwByHw_{dof_lst[dof]}'] + np.percentile(buf_Nw_Hw_ratio_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+
+        # "Versus" plots
+        plt.figure(dpi=400)
+        min_D = np.min([sw_Hw_max_D_loc, sw_Nw_max_D_loc])
+        max_D = np.max([sw_Hw_max_D_loc, sw_Nw_max_D_loc])
+        plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
+        plt.scatter(sw_Hw_max_D_loc, sw_Nw_max_D_loc, s=20, alpha=0.5, c='tab:brown', edgecolors='none')
+        plt.ylabel(f'Nonhomog. wind response: {sw_str_dof[dof]}')
+        plt.xlabel(f'Equiv. homog. wind response: {sw_str_dof[dof]}')
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_Versus_plots_dof_{dof}.png')
+        plt.show()
+        min_D = np.min([buf_Hw_max_D_loc, buf_Nw_max_D_loc])
+        max_D = np.max([buf_Hw_max_D_loc, buf_Nw_max_D_loc])
+        plt.figure(dpi=400)
+        plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
+        plt.scatter(buf_Hw_max_D_loc, buf_Nw_max_D_loc, s=20, alpha=0.5, c='tab:brown', edgecolors='none')
+        plt.ylabel(f'Nonhomog. wind response: {buf_str_dof[dof]}')
+        plt.xlabel(f'Equiv. homog. wind response: {buf_str_dof[dof]}')
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\buf_Versus_plots_dof_{dof}.png')
+        plt.show()
+
+        # QQ plots
+        plt.figure(dpi=400)
+        min_D = np.min([sw_Hw_max_D_loc, sw_Nw_max_D_loc])
+        max_D = np.max([sw_Hw_max_D_loc, sw_Nw_max_D_loc])
+        plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
+        plt.scatter(np.sort(sw_Hw_max_D_loc), np.sort(sw_Nw_max_D_loc), s=20, alpha=0.5, c='tab:brown', edgecolors='none')
+        plt.ylabel(f'Nonhomog. wind response: {sw_str_dof[dof]}')
+        plt.xlabel(f'Equiv. homog. wind response: {sw_str_dof[dof]}')
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_QQ_plots_dof_{dof}.png')
+        plt.show()
+        min_D = np.min([buf_Hw_max_D_loc, buf_Nw_max_D_loc])
+        max_D = np.max([buf_Hw_max_D_loc, buf_Nw_max_D_loc])
+        plt.figure(dpi=400)
+        plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
+        plt.scatter(np.sort(buf_Hw_max_D_loc), np.sort(buf_Nw_max_D_loc), s=20, alpha=0.5, c='tab:brown', edgecolors='none')
+        plt.ylabel(f'Nonhomog. wind response: {buf_str_dof[dof]}')
+        plt.xlabel(f'Equiv. homog. wind response: {buf_str_dof[dof]}')
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\buf_QQ_plots_dof_{dof}.png')
+        plt.show()
+
+        # Probability plots
+        plt.figure(dpi=400)
+        plt.scatter(np.sort(sw_Nw_max_D_loc), np.arange(n_Nw_sw_cases)/n_Nw_sw_cases, s=20, alpha=0.4, c='orange', edgecolors='none', label='Inhomogeneous')
+        plt.scatter(np.sort(sw_Hw_max_D_loc), np.arange(n_Nw_sw_cases)/n_Nw_sw_cases, s=20, alpha=0.4, c='blue',   edgecolors='none', label='Homogeneous'  )
+        plt.ylabel(f'Cumulative Distribution Function (CDF)')
+        plt.xlabel(f'{sw_str_dof[dof]}')
+        plt.grid()
+        plt.legend(loc=4)
+        plt.tight_layout()
+        plt.savefig(rf'results\sw_Prob_plots_dof_{dof}.png')
+        plt.show()
+        plt.figure(dpi=400)
+        plt.scatter(np.sort(buf_Nw_max_D_loc), np.arange(n_Nw_buf_cases)/n_Nw_buf_cases, s=20, alpha=0.4, c='orange', edgecolors='none', label='Inhomogeneous')
+        plt.scatter(np.sort(buf_Hw_max_D_loc), np.arange(n_Nw_buf_cases)/n_Nw_buf_cases, s=20, alpha=0.4, c='blue',   edgecolors='none', label='Homogeneous'  )
+        plt.ylabel(f'Cumulative Distribution Function (CDF)')
+        plt.xlabel(f'{buf_str_dof[dof]}')
+        plt.grid()
+        plt.legend(loc=4)
+        plt.tight_layout()
+        plt.savefig(rf'results\buf_Prob_plots_dof_{dof}.png')
+        plt.show()
+
+    my_table.to_csv(r'results\Static_and_buffeting_response_stats_MeanSTD.csv')
+    my_table2.to_csv(r'results\Static_and_buffeting_response_stats_Percentiles.csv')
+
+
+
+
 def Nw_plots():
-    """Inhomogeneous static wind plots"""
+    """Inhomogeneous wind static & buffeting response plots + Arrow plots of the ost conditioning wind cases"""
 
     ######################################################################################################
     # STATIC WIND
@@ -617,7 +781,7 @@ def Nw_plots():
     ######################################################################################################
     # Getting the Nw wind properties into the same df
     my_Nw_buf_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting')
-    n_Nw_buf_cases = np.max([int(''.join(i for i in f if i.isdigit())) for f in os.listdir(my_Nw_buf_path)])
+    n_Nw_buf_cases = np.max([int(''.join(i for i in f if i.isdigit())) for f in os.listdir(my_Nw_buf_path)]) + 1  # use +1 to count for the 0.
     std_delta_local = {'Nw':np.nan*np.zeros((n_Nw_buf_cases, n_g_nodes, 6)),
                        'Hw':np.nan*np.zeros((n_Nw_buf_cases, n_g_nodes, 6)),}  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
     for i in range(n_Nw_buf_cases):
