@@ -523,7 +523,7 @@ def Nw_tables():
 
     dof_lst = ['x', 'y', 'z', 'rx', 'ry', 'rz']
     my_table = pd.DataFrame(columns=['Name', 'Mean', 'STD', 'Min', 'Max'])
-    my_table2 = pd.DataFrame(columns=['Name', 'Min', 'P10', 'P50', 'P90', 'Max'])
+    my_table2 = pd.DataFrame(columns=['Analysis', 'Type', 'DOF', 'Avg.', 'Min', 'P1', 'P10', 'P50', 'P90', 'P99', 'Max'])
 
     sw_str_dof = ["$|\Delta_x|_{max}$ $[m]$",
                   "$|\Delta_y|_{max}$ $[m]$",
@@ -556,13 +556,13 @@ def Nw_tables():
         my_table = my_table.append({'Name': f'Buf_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(buf_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(buf_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(buf_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
         # TABLE 2
         # Static wind
-        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [     f'Sw_Nw_{dof_lst[dof]}'] + np.percentile(          sw_Nw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
-        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [     f'Sw_Hw_{dof_lst[dof]}'] + np.percentile(          sw_Hw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
-        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [ f'Sw_NwByHw_{dof_lst[dof]}'] + np.percentile( sw_Nw_Hw_ratio_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
-        # Buffeting
-        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [    f'Buf_Nw_{dof_lst[dof]}'] + np.percentile(         buf_Nw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
-        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [    f'Buf_Hw_{dof_lst[dof]}'] + np.percentile(         buf_Hw_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
-        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [f'Buf_NwByHw_{dof_lst[dof]}'] + np.percentile(buf_Nw_Hw_ratio_max_D_loc, [0, 10, 50, 90, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [ 'Static',      'Nw', f'{dof_lst[dof]}'] + [np.mean(          sw_Nw_max_D_loc)] + np.percentile(          sw_Nw_max_D_loc, [0, 1, 10, 50, 90, 99, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [ 'Static',      'Hw', f'{dof_lst[dof]}'] + [np.mean(          sw_Hw_max_D_loc)] + np.percentile(          sw_Hw_max_D_loc, [0, 1, 10, 50, 90, 99, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), [ 'Static',   'Ratio', f'{dof_lst[dof]}'] + [np.mean( sw_Nw_Hw_ratio_max_D_loc)] + np.percentile( sw_Nw_Hw_ratio_max_D_loc, [0, 1, 10, 50, 90, 99, 100]).tolist())), ignore_index=True)
+        # Buffeting 99,, '
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), ['Buffeting',    'Nw', f'{dof_lst[dof]}'] + [np.mean(         buf_Nw_max_D_loc)] + np.percentile(         buf_Nw_max_D_loc, [0, 1, 10, 50, 90, 99, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), ['Buffeting',    'Hw', f'{dof_lst[dof]}'] + [np.mean(         buf_Hw_max_D_loc)] + np.percentile(         buf_Hw_max_D_loc, [0, 1, 10, 50, 90, 99, 100]).tolist())), ignore_index=True)
+        my_table2 = my_table2.append(dict(zip(my_table2.keys(), ['Buffeting', 'Ratio', f'{dof_lst[dof]}'] + [np.mean(buf_Nw_Hw_ratio_max_D_loc)] + np.percentile(buf_Nw_Hw_ratio_max_D_loc, [0, 1, 10, 50, 90, 99, 100]).tolist())), ignore_index=True)
 
         # "Versus" plots
         plt.figure(dpi=400)
