@@ -442,7 +442,7 @@ def Nw_S_a(g_node_coor, f_array, Nw_U_bar, Nw_Ii):
     S_a = np.einsum('f,na,a,fna,fna->fna', 1/f_array, sigma_n ** 2, Ai, n_hat, 1 / (1 + 1.5 * np.einsum('a,fna->fna', Ai, n_hat)) ** (5 / 3))
     return S_a
 
-def Nw_S_aa(g_node_coor, Nw_beta_0, Nw_theta_0, f_array, Nw_U_bar, Nw_Ii, cospec_type=2):
+def Nw_S_aa(g_node_coor, Nw_beta_0, Nw_theta_0, f_array, Nw_U_bar, Nw_Ii, cospec_type=2, method='quadratic_vector_mean'):
     """
     In Hertz. The input coordinates are in Global Structural Gs (even though Gw is calculated and used in this function)
     """
@@ -452,11 +452,22 @@ def Nw_S_aa(g_node_coor, Nw_beta_0, Nw_theta_0, f_array, Nw_U_bar, Nw_Ii, cospec
 
     # Difficult part. We need a cross-transformation matrix T_GsNw_avg, which is an array with shape (n_g_nodes, n_g_nodes, 3) where each (i,j) entry is the T_GsNw_avg, where Nw_avg is the avg. between Nw_i (at node i) and Nw_j (at node j)
     T_GsNw = T_GsNw_func(Nw_beta_0, Nw_theta_0)  # shape (n_g_nodes,3,3)
-    Nw_Xu_Gs = np.einsum('nij,j->ni', T_GsNw, np.array([1, 0, 0]))  # Get all Nw Xu vectors. We will later average these.
-    Nw_Xu_Gs_avg_nonnorm = (Nw_Xu_Gs[:, None] + Nw_Xu_Gs) / 2  # shape (n_g_nodes, n_g_nodes, 3), so each entry m,n is an average of the Xu vector at node m and the Xu vector at node n
+    if method is 'unit_vector_mean':  # not weighted mean
+        Nw_Xu_Gs = np.einsum('nij,j->ni', T_GsNw, np.array([1, 0, 0]))  # Get all Nw Xu vectors. We will later average these.
+        Nw_Xu_Gs_avg_nonnorm = (Nw_Xu_Gs[:, None] + Nw_Xu_Gs) / 2  # shape (n_g_nodes, n_g_nodes, 3), so each entry m,n is an average of the Xu vector at node m and the Xu vector at node n
+        Nw_U_bar_avg = (Nw_U_bar[:, None] + Nw_U_bar) / 2  # from shape (n_g_nodes) to shape (n_g_nodes,n_g_nodes)
+    elif method is 'linear_vector_mean':   # weighted average by U
+        Nw_Xu_Gs = np.einsum('nij,nj->ni', T_GsNw, np.array([Nw_U_bar, 0*Nw_U_bar, 0*Nw_U_bar]).T)  # Get all Nw Xu vectors. We will later average these.
+        Nw_Xu_Gs_avg_nonnorm = (Nw_Xu_Gs[:, None] + Nw_Xu_Gs) / 2  # shape (n_g_nodes, n_g_nodes, 3), so each entry m,n is an average of the Xu vector at node m and the Xu vector at node n
+        Nw_U_bar_avg = np.linalg.norm(Nw_Xu_Gs_avg_nonnorm, axis=2)
+    elif method is 'quadratic_vector_mean':  # weighted average by U**2
+        Nw_Xu_Gs = np.einsum('nij,nj->ni', T_GsNw, np.array([Nw_U_bar**2, 0*Nw_U_bar, 0*Nw_U_bar]).T)  # Get all Nw Xu vectors. We will later average these.
+        Nw_Xu_Gs_avg_nonnorm = (Nw_Xu_Gs[:, None] + Nw_Xu_Gs) / 2  # shape (n_g_nodes, n_g_nodes, 3), so each entry m,n is an average of the Xu vector at node m and the Xu vector at node n
+        Nw_U_bar_avg = np.sqrt(np.linalg.norm(Nw_Xu_Gs_avg_nonnorm, axis=2))
     Nw_Xu_Gs_avg = Nw_Xu_Gs_avg_nonnorm / np.linalg.norm(Nw_Xu_Gs_avg_nonnorm, axis=2)[:, :, None]  # Normalized. shape (n_g_nodes, n_g_nodes, 3)
     Z_Gs = np.array([0, 0, 1])
-    Nw_Yv_Gs_avg = np.cross(Z_Gs[None, None, :], Nw_Xu_Gs_avg)
+    Nw_Yv_Gs_avg_nonnorm = np.cross(Z_Gs[None, None, :], Nw_Xu_Gs_avg)
+    Nw_Yv_Gs_avg = Nw_Yv_Gs_avg_nonnorm / np.linalg.norm(Nw_Yv_Gs_avg_nonnorm, axis=2)[:, :, None]
     Nw_Zw_Gs_avg = np.cross(Nw_Xu_Gs_avg, Nw_Yv_Gs_avg)
     X_Gs = np.repeat(np.repeat(np.array([1, 0, 0])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
     Y_Gs = np.repeat(np.repeat(np.array([0, 1, 0])[None, None, :], repeats=n_g_nodes, axis=0), repeats=n_g_nodes, axis=1)
@@ -497,13 +508,12 @@ def Nw_S_aa(g_node_coor, Nw_beta_0, Nw_theta_0, f_array, Nw_U_bar, Nw_Ii, cospec
     # for m in range(n_g_nodes):
     #     for n in range(n_g_nodes):
     #         delta_xyz_Nw_SLOW[m,n] = np.absolute(g_node_coor[m] @ T_GsNw_avg[m,n] - g_node_coor[n] @ T_GsNw_avg[m,n])
-    Nw_U_bar_avg = (Nw_U_bar[:, None] + Nw_U_bar) / 2  # from shape (n_g_nodes) to shape (n_g_nodes,n_g_nodes)
 
     if cospec_type == 1:  # Alternative 1: LD Zhu coherence and cross-spectrum. Developed in radians? So it is converted to Hertz in the end.
         raise NotImplementedError
     if cospec_type == 2:  # Coherence and cross-spectrum (adapted Davenport for 3D). Developed in Hertz!
         f_hat_aa = np.einsum('f,mna->fmna', f_array,
-                             np.divide(np.sqrt((Cij[:, 0] * delta_xyz_Nw[:, :, 0, None]) ** 2 + (Cij[:, 1] * delta_xyz_Nw[:, :, 1, None]) ** 2 + (Cij[:, 2] * delta_xyz_Nw[:, :, 2, None]) ** 2),
+                             np.divide(np.sqrt((Cij[:, 0] * delta_xyz_Nw[:, :, 0, None])**2 + (Cij[:, 1] * delta_xyz_Nw[:, :, 1, None])**2 + (Cij[:, 2] * delta_xyz_Nw[:, :, 2, None])**2),
                                        Nw_U_bar_avg[:, :, None]))  # This is actually in omega units, not f_array, according to eq.(10.35b)! So: rad/s
         f_hat = f_hat_aa  # this was confirmed to be correct with a separate 4 loop "f_hat_aa_confirm" and one Cij at the time
         R_aa = np.e ** (-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)

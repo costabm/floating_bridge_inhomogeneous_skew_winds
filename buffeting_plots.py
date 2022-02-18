@@ -570,7 +570,7 @@ def Nw_tables():
         max_D = np.max([sw_Hw_max_D_loc, sw_Nw_max_D_loc])
         plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
         plt.scatter(sw_Hw_max_D_loc, sw_Nw_max_D_loc, s=20, alpha=0.5, c='tab:brown', edgecolors='none')
-        plt.ylabel(f'Nonhomog. wind response: {sw_str_dof[dof]}')
+        plt.ylabel(f'Inhomogeneous wind response: {sw_str_dof[dof]}')
         plt.xlabel(f'Equiv. homog. wind response: {sw_str_dof[dof]}')
         plt.grid()
         plt.tight_layout()
@@ -581,7 +581,7 @@ def Nw_tables():
         plt.figure(dpi=400)
         plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
         plt.scatter(buf_Hw_max_D_loc, buf_Nw_max_D_loc, s=20, alpha=0.5, c='tab:brown', edgecolors='none')
-        plt.ylabel(f'Nonhomog. wind response: {buf_str_dof[dof]}')
+        plt.ylabel(f'Inhomogeneous wind response: {buf_str_dof[dof]}')
         plt.xlabel(f'Equiv. homog. wind response: {buf_str_dof[dof]}')
         plt.grid()
         plt.tight_layout()
@@ -594,7 +594,7 @@ def Nw_tables():
         max_D = np.max([sw_Hw_max_D_loc, sw_Nw_max_D_loc])
         plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
         plt.scatter(np.sort(sw_Hw_max_D_loc), np.sort(sw_Nw_max_D_loc), s=20, alpha=0.5, c='tab:brown', edgecolors='none')
-        plt.ylabel(f'Nonhomog. wind response: {sw_str_dof[dof]}')
+        plt.ylabel(f'Inhomogeneous wind response: {sw_str_dof[dof]}')
         plt.xlabel(f'Equiv. homog. wind response: {sw_str_dof[dof]}')
         plt.grid()
         plt.tight_layout()
@@ -605,7 +605,7 @@ def Nw_tables():
         plt.figure(dpi=400)
         plt.plot([min_D, max_D], [min_D, max_D], c='grey', alpha=0.5)
         plt.scatter(np.sort(buf_Hw_max_D_loc), np.sort(buf_Nw_max_D_loc), s=20, alpha=0.5, c='tab:brown', edgecolors='none')
-        plt.ylabel(f'Nonhomog. wind response: {buf_str_dof[dof]}')
+        plt.ylabel(f'Inhomogeneous wind response: {buf_str_dof[dof]}')
         plt.xlabel(f'Equiv. homog. wind response: {buf_str_dof[dof]}')
         plt.grid()
         plt.tight_layout()
@@ -1041,6 +1041,7 @@ def Nw_plots():
                 Iu_max = np.max(Nw_Ii[:, :, 0])
                 lats_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lats_bridge, n_plot_nodes)
                 lons_bridge = interpolate_from_n_nodes_to_nearest_n_nodes_plotted(lons_bridge, n_plot_nodes)
+
                 cm = truncate_colormap(matplotlib.cm.Blues, 0.1, 1.0)  # cividis_r
                 norm = matplotlib.colors.Normalize()
                 sm = matplotlib.cm.ScalarMappable(cmap=cm, norm=norm)
@@ -1075,6 +1076,17 @@ def Nw_plots():
                 plt.savefig(fr'plots/U_{analysis_type}_Nw_vs_Hw_rank-{rank_to_plot}_dof-{dof}.png')
                 plt.show()
                 plt.close()
+
+                # MAKE AN EXCEL WITH ALL WRF CASES ORGANIZED, TO SEND TO THE CONSULTANTS AMC AND OON
+
+                Nw_ws_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                Nw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                Nw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_Ii[case_idx,:,0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                Hw_ws_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                Hw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                Hw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_Ii[case_idx, :, 0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+
+
 
 Nw_plots()
 
