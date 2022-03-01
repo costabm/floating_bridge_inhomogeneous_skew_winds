@@ -54,7 +54,8 @@ def bridge_WRF_nodes_coor_func(n_bridge_WRF_nodes = n_bridge_WRF_nodes, bridge_R
 
 def create_minigrid_data_func():
     # Getting raw data. To see names of 'variables' do: print(dataset.variables)
-    folder_loc = os.path.join(os.getcwd(), r'WRF_500m_all/KVT_Bjornafjorden_10m_ws10m_xyt.nc4')  # original raw data file
+    # folder_loc = os.path.join(os.getcwd(), r'WRF_500m_all/KVT_Bjornafjorden_10m_ws10m_xyt.nc4')  # original raw data file
+    folder_loc = os.path.join(r'C:\Users\bercos\PycharmProjects\Metocean\WRF_500m_all\KVT_Bjornafjorden_10m_ws10m_xyt.nc4')
     # folder_loc = r'O:\Utbygging\Fagress\BFA40 Konstruksjoner\10 Faggrupper\01 Metocean\Data\Vinddata\3d\Vind\KVT_Bjornafjorden_10m_ws10m_xyt.nc4'  # this doesn't work?
     dataset = netCDF4.Dataset(folder_loc)
 
@@ -116,4 +117,5 @@ def create_minigrid_data_func():
 
 if create_minigrid:
     create_minigrid_data_func()
+
 

@@ -637,7 +637,7 @@ def Nw_tables():
     my_table.to_csv(r'results\Static_and_buffeting_response_stats_MeanSTD.csv')
     my_table2.to_csv(r'results\Static_and_buffeting_response_stats_Percentiles.csv')
 
-
+# Nw_tables()
 
 
 def Nw_plots():
@@ -1077,14 +1077,14 @@ def Nw_plots():
                 plt.show()
                 plt.close()
 
-                # MAKE AN EXCEL WITH ALL WRF CASES ORGANIZED, TO SEND TO THE CONSULTANTS AMC AND OON
-
-                Nw_ws_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
-                Nw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
-                Nw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_Ii[case_idx,:,0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
-                Hw_ws_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
-                Hw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
-                Hw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_Ii[case_idx, :, 0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                # # MAKE AN EXCEL WITH ALL WRF CASES ORGANIZED, TO SEND TO THE CONSULTANTS AMC AND OON
+                #
+                # Nw_ws_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_U_bar[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                # Nw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                # Nw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Nw_Ii[case_idx,:,0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                # Hw_ws_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_U_bar[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                # Hw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
+                # Hw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_Ii[case_idx, :, 0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
 
 
 
