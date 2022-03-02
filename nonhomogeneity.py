@@ -122,6 +122,26 @@ def interpolate_from_WRF_nodes_to_g_nodes(WRF_node_func, g_node_coor, WRF_node_c
 #     p_node_coor_sw = p_node_coor + D_glob_sw[g_node_num:,:3]  # Only the first 3 DOF are added as displacements. The 4th is alpha_sw
 #     return g_node_coor_sw, p_node_coor_sw, D_glob_sw
 
+def lighten_color(color, amount=0.5):
+    """
+    Amount: 0 to 1. Use 0 for maximum light (white)!
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2]) + (1,)  # + alpha
+
 
 def Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_U_bar_all, Nw_beta_bar_all, Nw_theta_bar_all, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D'):
     """
@@ -824,9 +844,11 @@ class NwAllCases:
         lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
         imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
         # cmap = copy.copy(plt.get_cmap('magma_r'))
-        cmap = copy.copy(plt.get_cmap('binary'))
-        imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
-        cmap.set_bad(color='skyblue')  # color where height == 0
+        # cmap = copy.copy(plt.get_cmap('binary'))
+        cmap_colors = np.vstack((lighten_color(matplotlib.colors.to_rgba('skyblue'), amount=0.3), plt.get_cmap('gist_earth')(np.linspace(0.3, 1.0, 255))))  # choose the cmap colors here
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list('my_terrain_map', colors=cmap_colors)
+        # imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
+        # cmap.set_bad(color=lighten_color(matplotlib.colors.to_rgba('skyblue'), 0.3))
         plt.figure(dpi=400)
         plt.title('Topography')
         bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
@@ -836,7 +858,7 @@ class NwAllCases:
         wrax = {}
         for pt_idx, pt in enumerate(bj_pt_strs):
             plt.scatter(bj_coors[pt_idx][0], bj_coors[pt_idx][1], marker='o', facecolors='black', edgecolors='black', s=10, label='Measurement location' if pt == 0 else None)
-        cb = plt.colorbar(imshow)
+        cb = plt.colorbar(imshow, pad=0.02)
         plt.xlabel('Easting [m]')
         plt.ylabel('Northing [m]')
         cb.set_label('Height [m]')
@@ -870,17 +892,16 @@ class NwAllCases:
         plt.close()
 
         # FIGURE 2, ZOOMED IN, FOR ANN PREDICTIONS
-        lon_lims = [-35000, -32000]
-        lat_lims = [6.6996E6, 6.705E6]
+        # lon_lims = [-35000, -32000]
+        # lat_lims = [6.6996E6, 6.705E6]
+        lon_lims = [-35200, -32200]
+        lat_lims = [6.6994E6, 6.7052E6]
         lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
         lat_lim_idxs = [np.where(lat_mosaic[:, 0] == lat_lims[0])[0][0], np.where(lat_mosaic[:, 0] == lat_lims[1])[0][0]]
         lon_mosaic_crop = lon_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
         lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
         imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
-        # cmap = copy.copy(plt.get_cmap('magma_r'))
-        cmap = copy.copy(plt.get_cmap('binary'))
-        imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
-        cmap.set_bad(color='skyblue')  # color where height == 0
+
         plt.figure(dpi=400)
         plt.title('ANN predictions of $I_u$')
         bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
@@ -926,20 +947,20 @@ class NwAllCases:
                 wrax[pt].patch.set_alpha(0)
                 wrax[pt].axis('off')
 
-        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
+        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax, pad=0.02)
         cb.set_label('$I_u$')
         main_ax.axis('off')
+        plt.tight_layout()
         plt.savefig('plots/ANN_preds_zoomin.png')
         plt.show()
         plt.close()
 
         # FIGURE 2, ZOOMED IN. FOR EUROCODE PREDICTIONS
         # cmap = copy.copy(plt.get_cmap('magma_r'))
-        cmap = copy.copy(plt.get_cmap('binary'))
-        imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
-        cmap.set_bad(color='skyblue')  # color where height == 0
+        # cmap = copy.copy(plt.get_cmap('binary'))
+
         plt.figure(dpi=400)
-        plt.title('EN predictions of $I_u$')
+        plt.title('NS-EN predictions of $I_u$')
         bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
                  lat_mosaic_crop.min(), lat_mosaic_crop.max()))
         imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
@@ -974,9 +995,10 @@ class NwAllCases:
                 wrax[pt].patch.set_alpha(0)
                 wrax[pt].axis('off')
 
-        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax)
+        cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax, pad=0.02)
         cb.set_label('$I_u$')
         main_ax.axis('off')
+        plt.tight_layout()
         plt.savefig('plots/EN_preds_zoomin.png')
         plt.show()
         plt.close()

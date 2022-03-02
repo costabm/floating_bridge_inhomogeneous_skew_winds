@@ -9,7 +9,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from create_minigrid_data_from_raw_WRF_500_data import bridge_WRF_nodes_coor_func, earth_R, lat_mid_Bj, earth_circunf_R_at_lat, lat_lon_aspect_ratio, n_bridge_WRF_nodes
 from orography import get_all_geotiffs_merged, synn_EN_33, svar_EN_33, osp1_EN_33, osp2_EN_33
+from nonhomogeneity import NwAllCases
 from pyproj import Transformer, CRS
+from windrose import WindroseAxes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 def rad(deg):
     return deg*np.pi/180
@@ -65,9 +68,27 @@ lon_mosaic, lat_mosaic, imgs_mosaic = get_all_geotiffs_merged()  # They are actu
 # imgs_mosaic = imgs_mosaic
 # print('Done!')
 
+def lighten_color(color, amount=0.5):
+    """
+    Amount: 0 to 1. Use 0 for maximum light (white)!
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
 
-def plot_WRF_grids():
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2]) + (1,)  # + alpha
 
+def plot_WRF_grids_on_topography():
     matplotlib.rcParams.update({'font.size': 7})
     lon_lims = [-41000, -28000]
     lat_lims = [6.694E6, 6.710E6]
@@ -77,13 +98,13 @@ def plot_WRF_grids():
     lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
     imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
     # cmap_colors = np.vstack((colors.to_rgba('skyblue'), plt.get_cmap('magma_r')(np.linspace(0, 0.8, 255))))  # choose the cmap colors here
-    cmap_colors = np.vstack((colors.to_rgba('skyblue'), plt.get_cmap('gist_earth')(np.linspace(0.2, 1.0, 255))))  # choose the cmap colors here
+    cmap_colors = np.vstack((lighten_color(colors.to_rgba('skyblue'), amount=0.3), plt.get_cmap('gist_earth')(np.linspace(0.3, 1.0, 255))))  # choose the cmap colors here
     cmap = colors.LinearSegmentedColormap.from_list('my_terrain_map', colors=cmap_colors)
     # cmap = copy.copy(plt.get_cmap('gray_r'))
     imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
     # cmap.set_bad(color='skyblue')  # color where height == 0
     plt.figure(dpi=600)
-    resolution_decrease_times = 1
+    resolution_decrease_times = 1  # use 1. or more just to speed up the code while debugging
     imshow = plt.tripcolor(lon_mosaic_crop.flatten()[::resolution_decrease_times], lat_mosaic_crop.flatten()[::resolution_decrease_times], imgs_mosaic_crop.flatten()[::resolution_decrease_times], zorder=0, cmap=cmap)
     cb = plt.colorbar(imshow, pad=0.02)
     cb.set_label('Height [m]')
@@ -142,7 +163,7 @@ def plot_WRF_grids():
     # plt.scatter(lat_lon_mini_grid[:,1], lat_lon_mini_grid[:,0], c='dodgerblue', s=6, edgecolors='none', alpha=0.8, label='Mini-grid WRF-500m')
     plt.scatter(wrf4km_grid[:,0], wrf4km_grid[:,1], c='black', s=25, edgecolors='none', marker='^', alpha=0.8, label='WRF 4km grid')
     plt.scatter(wrf4km_p_ref[0],wrf4km_p_ref[1], c='black', s=70, edgecolors='none', marker='*', alpha=0.8, label='WRF 4km ref.')
-    plt.scatter(mast_positions[:, 0], mast_positions[:, 1], c='none', marker='o', s=40, edgecolors='black', alpha=0.8, label='Wind masts')
+    plt.scatter(mast_positions[:, 0], mast_positions[:, 1], c='none', marker='o', s=60, edgecolors='black', alpha=0.8, label='Wind masts')
     plt.xlim(lon_lims)
     plt.ylim(lat_lims)
     # plt.gca().set_xticks([-30000, -35000, -40000])
@@ -153,5 +174,110 @@ def plot_WRF_grids():
     plt.tight_layout()
     plt.savefig('plots/topography_and_WRF_plot.png')
     plt.show()
+
+def plot_U_roses_on_topography():
+
+    n_WRF_nodes = n_bridge_WRF_nodes
+
+    bj_coors = np.array([[-34449.260, 6699999.046],
+                         [-34098.712, 6700359.394],
+                         [-33786.051, 6700752.909],
+                         [-33514.390, 6701175.648],
+                         [-33286.431, 6701623.380],
+                         [-33104.435, 6702091.622],
+                         [-32970.204, 6702575.689],
+                         [-32885.057, 6703070.741],
+                         [-32849.826, 6703571.830],
+                         [-32864.842, 6704073.945],
+                         [-32929.936, 6704572.075]])
+    bj_idx_strs = [f'{i:02}' for i in range(n_WRF_nodes)]
+
+    Nw_all = NwAllCases()
+    sort_by = 'ws_max'
+    n_Nw_cases = 'all'
+    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=17.2)
+    df_WRF = Nw_all.df_WRF
+
+
+    # WINDROSES
+    wd = df_WRF['wd_03']
+    ws = df_WRF['ws_03']
+    plt.figure(dpi=1000)
+    ax = WindroseAxes.from_ax()
+    ax.bar(wd, ws, normed=True, opening=0.0, edgecolor='white', cmap=plt.get_cmap('Reds'), bins=[0,10,15,20], nsector=1)
+    ax.set_xticklabels(['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE'])
+    plt.legend(prop={'size': 40})
+    ax.get_legend().set_title("Wind speeds [m/s]:")
+    ax.set_facecolor('red')
+    plt.axis('off')
+    plt.rcParams['legend.title_fontsize'] = 40
+    plt.savefig('plots/wind_roses_on_topography_legend.png')
+    plt.show()
+    plt.close()
+
+
+
+
+    # WINDROSES ON TOPOGRAPHY PLOTS
+    cmap_colors = np.vstack((lighten_color(colors.to_rgba('skyblue'), amount=0.3), plt.get_cmap('gist_earth')(np.linspace(0.3, 1.0, 255))))  # choose the cmap colors here
+    cmap = colors.LinearSegmentedColormap.from_list('my_terrain_map', colors=cmap_colors)
+    # lon_lims = [-35000, -32000]
+    # lat_lims = [6.6996E6, 6.705E6]
+    lon_lims = [-35200, -32200]
+    lat_lims = [6.6994E6, 6.7052E6]
+    lon_lim_idxs = [np.where(lon_mosaic[0, :] == lon_lims[0])[0][0], np.where(lon_mosaic[0, :] == lon_lims[1])[0][0]]
+    lat_lim_idxs = [np.where(lat_mosaic[:, 0] == lat_lims[0])[0][0], np.where(lat_mosaic[:, 0] == lat_lims[1])[0][0]]
+    lon_mosaic_crop = lon_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+    lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+    imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
+
+    plt.figure(dpi=400)
+    plt.title('Strong-wind roses')
+    bbox = ((lon_mosaic_crop.min(), lon_mosaic_crop.max(),
+             lat_mosaic_crop.min(), lat_mosaic_crop.max()))
+    plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap, vmin=0, vmax=750)
+    main_ax = plt.gca()
+    wrax = {}
+    # for pt_idx, pt in enumerate(bj_pt_strs):
+    #     plt.scatter(bj_coors[pt_idx][0], bj_coors[pt_idx][1], marker='o', facecolors='black', edgecolors='black', s=10, label='Measurement location' if pt==0 else None)
+
+    # plt.legend() #[handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
+    # plt.tight_layout(pad=0.05)
+
+
+    for pt_idx, pt in enumerate(bj_idx_strs):
+        if True:  # pt_idx%10==0: # if point index is even:
+            ########### WIND ROSES
+            wd = df_WRF['wd_'+pt]
+            ws = df_WRF['ws_'+pt]
+
+            wrax[pt] = inset_axes(main_ax,
+                                  width=0.65,  # size in inches
+                                  height=0.65,  # size in inches
+                                  loc='center',  # center bbox at given position
+                                  bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
+                                  bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
+                                  axes_class=WindroseAxes)  # specify the class of the axe
+            # # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+            # # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
+            # wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+            #                                                                       (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
+            wrax[pt].bar(wd, ws, normed=True, opening=0.8, edgecolor='none', cmap=plt.get_cmap('Reds'), bins=[0, 10, 15, 20], nsector=12, alpha=0.8)
+            wrax[pt].tick_params(labelleft=False, labelbottom=False)
+            wrax[pt].patch.set_alpha(0)
+            wrax[pt].axis('off')
+
+    # cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax, pad=0.02)
+    # cb.set_label('$I_u$')
+    main_ax.axis('off')
+    plt.tight_layout()
+    plt.savefig('plots/wind_roses_on_topography.png')
+    plt.show()
+    plt.close()
+
+    pl
+    plt.legend()
+    plt.show()
+
 
 
