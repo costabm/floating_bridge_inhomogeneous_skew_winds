@@ -6,7 +6,7 @@ import numpy as np
 import netCDF4  # necessary to open the raw data. https://unidata.github.io/netcdf4-python/
 import matplotlib.pyplot as plt
 from create_minigrid_data_from_raw_WRF_500_data import bridge_WRF_nodes_coor_func, earth_R, lat_mid_Bj, earth_circunf_R_at_lat, lat_lon_aspect_ratio, n_bridge_WRF_nodes
-from orography import get_all_geotiffs_merged
+from orography import get_all_geotiffs_merged, synn_EN_33, svar_EN_33, osp1_EN_33, osp2_EN_33
 from pyproj import Transformer, CRS
 
 def rad(deg):
@@ -72,14 +72,15 @@ def plot_WRF_grids():
     # lon_lim_idxs = [find_idx_of_nearest(lon_mosaic[5000, :], lon_lims[0]), find_idx_of_nearest(lon_mosaic[5000, :], lon_lims[1])]
     # lat_lim_idxs = [find_idx_of_nearest(lat_mosaic[:, 5000], lat_lims[0]), find_idx_of_nearest(lat_mosaic[:, 5000], lat_lims[1])]
 
-    lon_lims = [-40000, -30000]
-    lat_lims = [6.696E6, 6.708E6]
+    lon_lims = [-41000, -29000]
+    lat_lims = [6.697E6, 6.707E6]
     lon_lim_idxs = [np.where(lon_mosaic[0,:]==lon_lims[0])[0][0], np.where(lon_mosaic[0,:]==lon_lims[1])[0][0]]
     lat_lim_idxs = [np.where(lat_mosaic[:,0]==lat_lims[0])[0][0], np.where(lat_mosaic[:,0]==lat_lims[1])[0][0]]
     lon_mosaic_crop = lon_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
     lat_mosaic_crop = lat_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
     imgs_mosaic_crop = imgs_mosaic[lat_lim_idxs[1]:lat_lim_idxs[0], lon_lim_idxs[0]:lon_lim_idxs[1]]
-    cmap = copy.copy(plt.get_cmap('gist_heat_r'))
+    # cmap = copy.copy(plt.get_cmap('gist_heat_r'))
+    cmap = copy.copy(plt.get_cmap('gray_r'))
     imgs_mosaic_crop = np.ma.masked_where(imgs_mosaic_crop == 0, imgs_mosaic_crop)  # set mask where height is 0, to be converted to another color
     cmap.set_bad(color='skyblue')  # color where height == 0
     plt.figure(dpi=400)
@@ -89,7 +90,8 @@ def plot_WRF_grids():
     # plt.xlim(bbox[0], bbox[1])
     # plt.ylim(bbox[2], bbox[3])
     # imshow = plt.imshow(imgs_mosaic_crop, extent=bbox, zorder=0, cmap=cmap)
-    imshow = plt.tripcolor(lon_mosaic_crop.flatten(), lat_mosaic_crop.flatten(), imgs_mosaic_crop.flatten(), zorder=0, cmap=cmap)
+    resolution_decrease_times = 10
+    imshow = plt.tripcolor(lon_mosaic_crop.flatten()[::resolution_decrease_times], lat_mosaic_crop.flatten()[::resolution_decrease_times], imgs_mosaic_crop.flatten()[::resolution_decrease_times], zorder=0, cmap=cmap)
 
     # plt.scatter(point_1[0], point_1[1], marker='o', facecolors='none', edgecolors='black', label='Measurement location')
     # plt.scatter(point_2[0], point_2[1], marker='o', facecolors='none', edgecolors='black', s=4)
@@ -150,21 +152,29 @@ def plot_WRF_grids():
     cond_all = np.logical_and(np.logical_and(np.logical_and(cond_1,cond_2), cond_3), cond_4)
     idx_cond_all = np.array(np.where(cond_all)).transpose()
     lat_lon_major_grid = np.array([[lats_lons['lats'][i,j], lats_lons['lons'][i,j]] for i,j in idx_cond_all])
-
+    # Getting the mast positions
+    mast_positions = np.array([synn_EN_33, svar_EN_33, osp1_EN_33, osp2_EN_33])
+    # Guessing the WRF 4km grid positions
+    wrf4km_p_ref = np.array([-38200,6.70257E6])
+    wrf4km_p1 = np.array([-34325, 6.70162E6])  # guessed visually, by comparing with the WRF grid picture in reports from Kjeller Vindteknikk
+    wrf4km_dx, wrf4km_dy = np.abs(wrf4km_p1 - wrf4km_p_ref)
+    dpoints = [-3, -2, -1, 0, 1, 2, 3]
+    wrf4km_grid = np.array([[wrf4km_p_ref + np.array([i*wrf4km_dx+j*wrf4km_dy, j*wrf4km_dx-i*wrf4km_dy]) for i in dpoints] for j in dpoints]).reshape(len(dpoints)**2,2)
+    wrf4km_grid = np.delete(wrf4km_grid, np.where(np.all(wrf4km_grid - wrf4km_p_ref == [0,0], axis=1))[0][0], axis=0)  # removing the ref point, which is represented separately with another marker
     # Plotting all nodes of the bridge and the mini-grid
-    plt.scatter(bridge_WRF_nodes_coor[:,1], bridge_WRF_nodes_coor[:,0], c='black', alpha=0.8, label='Interpolation nodes')
-    plt.scatter(lat_lon_major_grid[:, 1], lat_lon_major_grid[:, 0], c='grey', s=10, alpha=0.3, label='Mini-grid WRF-500m')
-    plt.scatter(lat_lon_mini_grid[:,1], lat_lon_mini_grid[:,0], c='blue', s=10, alpha=0.8, label='Mini-grid WRF-500m')
-    plt.axhline(max_bridge_lat, c='orange', alpha=0.5, linestyle='-.')
-    plt.axhline(min_bridge_lat, c='orange', alpha=0.5, linestyle='-.')
-    plt.axvline(max_bridge_lon, c='orange', alpha=0.5, linestyle='-.')
-    plt.axvline(min_bridge_lon, c='orange', alpha=0.5, linestyle='-.')
-    # plt.xlim([5.25, 5.50])
-    # plt.ylim([60.06,60.14])
-    # plt.xlim([5.35, 5.40])
-    # plt.ylim([60.07,60.10])
+    plt.scatter(bridge_WRF_nodes_coor[:,1], bridge_WRF_nodes_coor[:,0], c='maroon', marker='o', s=15, edgecolors='none', alpha=0.8, label='Interpolation nodes')
+    plt.scatter(lat_lon_major_grid[:, 1], lat_lon_major_grid[:, 0], c='green', s=6, marker='s', edgecolors='none', alpha=0.4, label='WRF 500m grid', zorder=0.9)
+    plt.plot(bridge_WRF_nodes_coor[:, 1], bridge_WRF_nodes_coor[:, 0], c='maroon', alpha=0.6, label='Bridge axis')
+    # plt.scatter(lat_lon_mini_grid[:,1], lat_lon_mini_grid[:,0], c='dodgerblue', s=6, edgecolors='none', alpha=0.8, label='Mini-grid WRF-500m')
+    plt.scatter(wrf4km_grid[:,0], wrf4km_grid[:,1], c='darkorange', s=25, edgecolors='none', marker='o', alpha=0.8, label='WRF 4km grid')
+    plt.scatter(wrf4km_p_ref[0],wrf4km_p_ref[1], c='darkorange', s=75, edgecolors='none', marker='*', alpha=0.8, label='WRF 4km ref. node')
+    plt.scatter(mast_positions[:, 0], mast_positions[:, 1], c='dodgerblue', marker='D', s=25, edgecolors='none', alpha=0.8, label='Wind masts')
+    plt.xlim(lon_lims)
+    plt.ylim(lat_lims)
     plt.gca().set_aspect(1)  # Very important: going 1 deg to west is not the same distance in meters as going 1 deg north. The proportion is np.cos(lat_mid_Bj)
-    # plt.legend()
+    plt.xlabel('Easting [m]')
+    plt.ylabel('Northing [m]')
+    plt.legend(loc=3, ncol=2)
     plt.show()
 
     plt.savefig('plots/topography_and_WRF_plot.png')
