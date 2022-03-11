@@ -294,7 +294,7 @@ def equivalent_Hw_beta_0_all(Nw_U_bar, Nw_beta_0, g_node_num, eqv_Hw_beta_method
     return Hw_beta_0_all
 
 
-def equivalent_Hw_Ii_all(Nw_U_bar, Nw_Ii, g_node_num, eqv_Hw_Ii_method):
+def equivalent_Hw_Ii_all(Nw_U_bar, Hw_U_bar, Nw_Ii, g_node_num, eqv_Hw_Ii_method):
     """this is an auxiliary function that gets Hw_Ii_all with shape(n_cases, n_nodes, 3)"""
     Nw_U_bar_repeated = np.repeat(Nw_U_bar[:,:,None], repeats=3, axis=-1)  # repeated to have same shape as Nw_Ii to then do weighted average
     if eqv_Hw_Ii_method == 'mean':
@@ -303,6 +303,8 @@ def equivalent_Hw_Ii_all(Nw_U_bar, Nw_Ii, g_node_num, eqv_Hw_Ii_method):
         Hw_Ii_all = np.repeat(np.average(Nw_Ii, axis=1, weights=Nw_U_bar_repeated)[:, None, :], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
     elif eqv_Hw_Ii_method == 'U2_weighted_mean':
         Hw_Ii_all = np.repeat(np.average(Nw_Ii, axis=1, weights=Nw_U_bar_repeated ** 2)[:, None, :], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
+    elif eqv_Hw_Ii_method == 'Hw_U*Hw_sigma_i=mean(Nw_U*Nw_sigma_i)':
+        Hw_Ii_all = np.repeat((np.sum(Nw_U_bar_repeated**2 * Nw_Ii, axis=1)/(g_node_num*Hw_U_bar**2[:,0]))[:, None, :], repeats=g_node_num, axis=1)  # see eq. 22 of the inhomogeneity paper
     return Hw_Ii_all
 
 
@@ -735,10 +737,10 @@ class NwAllCases:
         self.equiv_Hw_beta_bar = Hw_beta_bar_all
         self.equiv_Hw_theta_bar = Hw_theta_bar_all
 
-    def set_equivalent_Hw_Ii(self, eqv_Hw_Ii_method = 'U_weighted_mean'):
+    def set_equivalent_Hw_Ii(self, eqv_Hw_Ii_method = 'Hw_U*Hw_sigma_i=mean(Nw_U*Nw_sigma_i)'):
         g_node_coor = self.g_node_coor
         g_node_num = g_node_coor.shape[0]
-        self.equiv_Hw_Ii = equivalent_Hw_Ii_all(Nw_U_bar=self.U_bar, Nw_Ii=self.Ii, g_node_num=g_node_num, eqv_Hw_Ii_method=eqv_Hw_Ii_method)
+        self.equiv_Hw_Ii = equivalent_Hw_Ii_all(Nw_U_bar=self.U_bar, Hw_U_bar=self.equiv_Hw_U_bar, Nw_Ii=self.Ii, g_node_num=g_node_num, eqv_Hw_Ii_method=eqv_Hw_Ii_method)
 
     def _convert_attributes_from_lists_to_arrs(self):
         """Converts the instance attributes from a list of lists, to numpy arrays"""

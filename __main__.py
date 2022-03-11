@@ -276,12 +276,13 @@ if run_new_Nw_sw:
     Nw_all.plot_U(df_WRF_idx=-1)
 
     Nw_all.set_equivalent_Hw_U_bar_and_beta(U_method='quadratic_vector_mean', beta_method='quadratic_vector_mean')
-    Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='U_weighted_mean')
+    Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='Hw_U*Hw_sigma_i=mean(Nw_U*Nw_sigma_i)')
 
-
-
-    Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R_loc_all, Nw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.U_bar, Nw_all.beta_bar, Nw_all.theta_bar, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
-    Hw_g_node_coor_all, Hw_p_node_coor_all, Hw_D_glob_all, Hw_D_loc_all, Hw_R_loc_all, Hw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.equiv_Hw_U_bar, Nw_all.equiv_Hw_beta_bar, Nw_all.equiv_Hw_theta_bar, aero_coef_method='2D_fit_cons', n_aero_coef=6, skew_approach='3D')
+    static_aero_coef_method = '2D_fit_cons'
+    static_skew_approach = '3D'
+    print(f'Static analysis. static_aero_coef_method: {static_aero_coef_method}. static_skew_approach: {static_skew_approach}')
+    Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R_loc_all, Nw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.U_bar, Nw_all.beta_bar, Nw_all.theta_bar, aero_coef_method=static_aero_coef_method, n_aero_coef=6, skew_approach=static_skew_approach)
+    Hw_g_node_coor_all, Hw_p_node_coor_all, Hw_D_glob_all, Hw_D_loc_all, Hw_R_loc_all, Hw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.equiv_Hw_U_bar, Nw_all.equiv_Hw_beta_bar, Nw_all.equiv_Hw_theta_bar, aero_coef_method=static_aero_coef_method, n_aero_coef=6, skew_approach=static_skew_approach)
 
     # Other post-processing
     Nw_R6g_abs_all = np.abs(Nw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
@@ -303,10 +304,10 @@ if run_new_Nw_sw:
         for key in Nw_dict_all_results.keys():
             if isinstance(Nw_dict_all_results[key], list):
                 Nw_dict_1_case[key]=Nw_dict_all_results[key][n]
-        with open(r'intermediate_results\\static_wind\\Nw_dict_'+str(n)+'.json', 'w', encoding='utf-8') as f:
+        with open(r'intermediate_results\\static_wind_'+static_skew_approach+r'\\Nw_dict_'+str(n)+'.json', 'w', encoding='utf-8') as f:
             json.dump(Nw_dict_1_case, f, ensure_ascii=False, indent=4)
 
-n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind\\') if 'Nw_dict_' in fname])
+n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind_'+static_skew_approach+r'\\') if 'Nw_dict_' in fname])
 
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

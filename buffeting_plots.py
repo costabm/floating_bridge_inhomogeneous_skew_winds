@@ -544,16 +544,16 @@ def Nw_tables():
         sw_Nw_max_D_loc = np.array([func(np.max(np.abs(Nw_D_loc[case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
         sw_Hw_max_D_loc = np.array([func(np.max(np.abs(Hw_D_loc[case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
         sw_Nw_Hw_ratio_max_D_loc = sw_Nw_max_D_loc / sw_Hw_max_D_loc
-        my_table = my_table.append({'Name': f'Sw_Nw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Nw_max_D_loc)), 'STD': str(np.std(sw_Nw_max_D_loc)), 'Min': str(np.min(sw_Nw_max_D_loc)), 'Max': str(np.max(sw_Nw_max_D_loc))}, ignore_index=True)
-        my_table = my_table.append({'Name': f'Sw_Hw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Hw_max_D_loc)), 'STD': str(np.std(sw_Hw_max_D_loc)), 'Min': str(np.min(sw_Hw_max_D_loc)), 'Max': str(np.max(sw_Hw_max_D_loc))}, ignore_index=True)
-        my_table = my_table.append({'Name': f'Sw_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(sw_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(sw_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(sw_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
+        # my_table = my_table.append({'Name': f'Sw_Nw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Nw_max_D_loc)), 'STD': str(np.std(sw_Nw_max_D_loc)), 'Min': str(np.min(sw_Nw_max_D_loc)), 'Max': str(np.max(sw_Nw_max_D_loc))}, ignore_index=True)
+        # my_table = my_table.append({'Name': f'Sw_Hw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Hw_max_D_loc)), 'STD': str(np.std(sw_Hw_max_D_loc)), 'Min': str(np.min(sw_Hw_max_D_loc)), 'Max': str(np.max(sw_Hw_max_D_loc))}, ignore_index=True)
+        # my_table = my_table.append({'Name': f'Sw_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(sw_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(sw_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(sw_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(sw_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
         # Buffeting
         buf_Nw_max_D_loc = np.array([func(np.max(np.abs(std_delta_local['Nw'][case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
         buf_Hw_max_D_loc = np.array([func(np.max(np.abs(std_delta_local['Hw'][case][:n_g_nodes, dof])), dof) for case in range(n_Nw_sw_cases)])
         buf_Nw_Hw_ratio_max_D_loc = buf_Nw_max_D_loc / buf_Hw_max_D_loc
-        my_table = my_table.append({'Name': f'Buf_Nw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_max_D_loc)), 'STD': str(np.std(buf_Nw_max_D_loc)), 'Min': str(np.min(buf_Nw_max_D_loc)), 'Max': str(np.max(buf_Nw_max_D_loc))}, ignore_index=True)
-        my_table = my_table.append({'Name': f'Buf_Hw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Hw_max_D_loc)), 'STD': str(np.std(buf_Hw_max_D_loc)), 'Min': str(np.min(buf_Hw_max_D_loc)), 'Max': str(np.max(buf_Hw_max_D_loc))}, ignore_index=True)
-        my_table = my_table.append({'Name': f'Buf_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(buf_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(buf_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(buf_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
+        # my_table = my_table.append({'Name': f'Buf_Nw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_max_D_loc)), 'STD': str(np.std(buf_Nw_max_D_loc)), 'Min': str(np.min(buf_Nw_max_D_loc)), 'Max': str(np.max(buf_Nw_max_D_loc))}, ignore_index=True)
+        # my_table = my_table.append({'Name': f'Buf_Hw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Hw_max_D_loc)), 'STD': str(np.std(buf_Hw_max_D_loc)), 'Min': str(np.min(buf_Hw_max_D_loc)), 'Max': str(np.max(buf_Hw_max_D_loc))}, ignore_index=True)
+        # my_table = my_table.append({'Name': f'Buf_NwByHw_{dof_lst[dof]}', 'Mean': str(np.mean(buf_Nw_Hw_ratio_max_D_loc)), 'STD': str(np.std(buf_Nw_Hw_ratio_max_D_loc)), 'Min': str(np.min(buf_Nw_Hw_ratio_max_D_loc)),'Max': str(np.max(buf_Nw_Hw_ratio_max_D_loc))}, ignore_index=True)
         # TABLE 2
         # Static wind
         my_table2 = my_table2.append(dict(zip(my_table2.keys(), [ 'Static',      'Nw', f'{dof_lst[dof]}'] + [np.mean(          sw_Nw_max_D_loc)] + np.percentile(          sw_Nw_max_D_loc, [0, 1, 10, 50, 90, 95, 99, 100]).tolist())), ignore_index=True)
@@ -634,13 +634,13 @@ def Nw_tables():
         plt.savefig(rf'results\buf_Prob_plots_dof_{dof}.png')
         plt.show()
 
-    my_table.to_csv(r'results\Static_and_buffeting_response_stats_MeanSTD.csv')
+    # my_table.to_csv(r'results\Static_and_buffeting_response_stats_MeanSTD.csv')
     my_table2.to_csv(r'results\Static_and_buffeting_response_stats_Percentiles.csv')
 
 # Nw_tables()
 
 
-def Nw_plots():
+def Nw_plots():  # Plots for the inhomogeneous wind journal paper
     """Inhomogeneous wind static & buffeting response plots + Arrow plots of the ost conditioning wind cases"""
 
     ######################################################################################################
@@ -1086,9 +1086,280 @@ def Nw_plots():
                 # Hw_wd_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_beta_DB[case_idx], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
                 # Hw_Iu_all = np.array([interpolate_from_n_nodes_to_nearest_n_nodes_plotted(Hw_Ii[case_idx, :, 0], n_plot_nodes) for case_idx in range(n_Nw_sw_cases)])
 
+# Nw_plots()
 
 
-Nw_plots()
+
+def Nw_plots_for_EACWE22():  # for European African Conference of Wind Engineering
+    """Inhomogeneous wind static & buffeting response plots + Arrow plots of the ost conditioning wind cases"""
+
+    ######################################################################################################
+    # STATIC WIND
+    ######################################################################################################
+    n_g_nodes = len(g_node_coor)
+    n_p_nodes = len(p_node_coor)
+    g_s_3D = g_s_3D_func(g_node_coor)
+    x = np.round(g_s_3D)
+    # Getting the Nw wind properties into the same df
+    C1_my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind_cos_rule')
+    C2_my_Nw_path = os.path.join(os.getcwd(), r'intermediate_results', 'static_wind_3D')
+    C1_n_Nw_sw_cases = len(os.listdir(C1_my_Nw_path))
+    C2_n_Nw_sw_cases = len(os.listdir(C1_my_Nw_path))
+    assert C1_n_Nw_sw_cases == C2_n_Nw_sw_cases
+    C1_Nw_dict_all, C1_Nw_D_loc, C1_Hw_D_loc, C1_Nw_U_bar_RMS, C1_Nw_U_bar, C1_Hw_U_bar, C1_Hw_U_bar_RMS, C1_Nw_beta_0, C1_Hw_beta_0, C1_Nw_Ii, C1_Hw_Ii = [],[],[],[],[],[],[],[],[],[],[]  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    C2_Nw_dict_all, C2_Nw_D_loc, C2_Hw_D_loc, C2_Nw_U_bar_RMS, C2_Nw_U_bar, C2_Hw_U_bar, C2_Hw_U_bar_RMS, C2_Nw_beta_0, C2_Hw_beta_0, C2_Nw_Ii, C2_Hw_Ii = [], [], [], [], [], [], [], [], [], [], []  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(C1_n_Nw_sw_cases):
+        Nw_path = os.path.join(C1_my_Nw_path, f'Nw_dict_{i}.json')
+        with open(Nw_path, 'r') as f:
+            C1_Nw_dict_all.append(json.load(f))
+            C1_Nw_U_bar.append(np.array(C1_Nw_dict_all[i]['Nw_U_bar']))
+            C1_Hw_U_bar.append(np.array(C1_Nw_dict_all[i]['Hw_U_bar']))
+            C1_Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(C1_Nw_dict_all[i]['Nw_U_bar'])**2)))
+            C1_Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(C1_Nw_dict_all[i]['Hw_U_bar'])**2)))
+            C1_Nw_beta_0.append(np.array(C1_Nw_dict_all[i]['Nw_beta_0']))
+            C1_Hw_beta_0.append(np.array(C1_Nw_dict_all[i]['Hw_beta_0']))
+            C1_Nw_D_loc.append(np.array(C1_Nw_dict_all[i]['Nw_D_loc']))
+            C1_Hw_D_loc.append(np.array(C1_Nw_dict_all[i]['Hw_D_loc']))
+            C1_Nw_Ii.append(np.array(C1_Nw_dict_all[i]['Nw_Ii']))
+            C1_Hw_Ii.append(np.array(C1_Nw_dict_all[i]['Hw_Ii']))
+    C1_Nw_U_bar = np.array(C1_Nw_U_bar)
+    C1_Hw_U_bar = np.array(C1_Hw_U_bar)
+    C1_Nw_Ii = np.array(C1_Nw_Ii)
+    C1_Hw_Ii = np.array(C1_Hw_Ii)
+    C1_Nw_beta_DB = beta_DB_func(np.array(C1_Nw_beta_0))
+    C1_Hw_beta_DB = beta_DB_func(np.array(C1_Hw_beta_0))
+    for i in range(C2_n_Nw_sw_cases):
+        Nw_path = os.path.join(C2_my_Nw_path, f'Nw_dict_{i}.json')
+        with open(Nw_path, 'r') as f:
+            C2_Nw_dict_all.append(json.load(f))
+            C2_Nw_U_bar.append(np.array(C2_Nw_dict_all[i]['Nw_U_bar']))
+            C2_Hw_U_bar.append(np.array(C2_Nw_dict_all[i]['Hw_U_bar']))
+            C2_Nw_U_bar_RMS.append(np.sqrt(np.mean(np.array(C2_Nw_dict_all[i]['Nw_U_bar'])**2)))
+            C2_Hw_U_bar_RMS.append(np.sqrt(np.mean(np.array(C2_Nw_dict_all[i]['Hw_U_bar'])**2)))
+            C2_Nw_beta_0.append(np.array(C2_Nw_dict_all[i]['Nw_beta_0']))
+            C2_Hw_beta_0.append(np.array(C2_Nw_dict_all[i]['Hw_beta_0']))
+            C2_Nw_D_loc.append(np.array(C2_Nw_dict_all[i]['Nw_D_loc']))
+            C2_Hw_D_loc.append(np.array(C2_Nw_dict_all[i]['Hw_D_loc']))
+            C2_Nw_Ii.append(np.array(C2_Nw_dict_all[i]['Nw_Ii']))
+            C2_Hw_Ii.append(np.array(C2_Nw_dict_all[i]['Hw_Ii']))
+    C2_Nw_U_bar = np.array(C2_Nw_U_bar)
+    C2_Hw_U_bar = np.array(C2_Hw_U_bar)
+    C2_Nw_Ii = np.array(C2_Nw_Ii)
+    C2_Hw_Ii = np.array(C2_Hw_Ii)
+    C2_Nw_beta_DB = beta_DB_func(np.array(C2_Nw_beta_0))
+    C2_Hw_beta_DB = beta_DB_func(np.array(C2_Hw_beta_0))
+
+    def func(x, dof):
+        """converts results in radians to degrees, if dof is an angle"""
+        if dof >= 3:
+            return deg(x)
+        else:
+            return x
+
+    for dof in [1,2,3]:
+        ##################################
+        # LINE PLOTS
+        ##################################
+        str_dof = ["$\Delta_x$ $[m]$",
+                   "$\Delta_y$ $[m]$",
+                   "$\Delta_z$ $[m]$",
+                   "$\Delta_{rx}$ $[\degree]$",
+                   "$\Delta_{ry}$ $[\degree]$",
+                   "$\Delta_{rz}$ $[\degree]$"]
+        plt.figure(dpi=400)
+        # plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
+        for case in range(C1_n_Nw_sw_cases):
+            label1, label2, label3 = ('Cos rule - Homog. (all cases)', '3D skew wind - Homog. (all cases)', '3D skew wind - Inhomog. (all cases)') if case == 0 else (None,None,None)
+            plt.plot(x, func(C1_Hw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='green', label=label1)
+            plt.plot(x, func(C2_Hw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='blue', label=label2)
+            plt.plot(x, func(C2_Nw_D_loc[case][:n_g_nodes, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label3)
+        plt.plot(x, func(np.max(np.array([C1_Hw_D_loc[case][:n_g_nodes, dof] for case in range(C1_n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='green', lw=3, label=f'Cos rule - Homog. (envelope)')
+        plt.plot(x, func(np.min(np.array([C1_Hw_D_loc[case][:n_g_nodes, dof] for case in range(C1_n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='green', lw=3)
+        plt.plot(x, func(np.max(np.array([C2_Hw_D_loc[case][:n_g_nodes, dof] for case in range(C2_n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3, label=f'3D skew wind - Homog. (envelope)')
+        plt.plot(x, func(np.min(np.array([C2_Hw_D_loc[case][:n_g_nodes, dof] for case in range(C2_n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='blue', lw=3)
+        plt.plot(x, func(np.max(np.array([C2_Nw_D_loc[case][:n_g_nodes, dof] for case in range(C2_n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='orange', lw=3, label=f'3D skew wind - Inhomog. (envelope)')
+        plt.plot(x, func(np.min(np.array([C2_Nw_D_loc[case][:n_g_nodes, dof] for case in range(C2_n_Nw_sw_cases)]), axis=0), dof), alpha=0.7, c='orange', lw=3)
+        plt.xlabel('x [m]  (Position along the arc)')
+        plt.ylabel(str_dof[dof])
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\C1VSC2_sw_lines_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ##################################
+        # SCATTER PLOTS
+        ##################################
+        str_dof = ["$|\Delta_x|_{max}$ $[m]$",
+                   "$|\Delta_y|_{max}$ $[m]$",
+                   "$|\Delta_z|_{max}$ $[m]$",
+                   "$|\Delta_{rx}|_{max}$ $[\degree]$",
+                   "$|\Delta_{ry}|_{max}$ $[\degree]$",
+                   "$|\Delta_{rz}|_{max}$ $[\degree]$"]
+        my_down_arrow = np.array([[-90.0000,   5.8488],
+                                  [  0.0000, -86.5902],
+                                  [ 90.0000,   5.8488],
+                                  [ 30.0000,   5.8488],
+                                  [ 30.0000,  83.4098],
+                                  [-30.0000,  83.4098],
+                                  [-30.0000,   5.8488]])  # draw polyline in AUTOCAD and do LIST command (use REGION, MASSPROP and MOVE to get it centered at C.O.G)
+        ########## w.r.t. U ##########
+        plt.figure(dpi=400)
+        # plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
+        for case in range(C1_n_Nw_sw_cases): # n_Nw_sw_cases):
+            label1, label2, label3 = ('Cos rule - Homog. (all cases)', '3D skew wind - Homog. (all cases)', '3D skew wind - Inhomog. (all cases)') if case == 0 else (None, None, None)
+            beta_DB_1_case = beta_DB_func(C1_Hw_beta_0[case][0])
+            arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(C1_Hw_U_bar[case,0], func(np.max(np.abs(C1_Hw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='green', edgecolors='none', label=label1)
+            plt.scatter(C2_Hw_U_bar[case,0], func(np.max(np.abs(C2_Hw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue' , edgecolors='none', label=label2)
+            plt.scatter(C2_Hw_U_bar[case,0], func(np.max(np.abs(C2_Nw_D_loc[case][:n_g_nodes, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange' , edgecolors='none', label=label3)
+        plt.xlabel(r'$U^H$ [m/s]')
+        plt.ylabel(str_dof[dof])
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\C1VSC2_sw_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ########## w.r.t. BETA ##########
+        fig = plt.figure(dpi=400)
+        ax = fig.add_subplot(111, projection='polar')
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        # plt.title(f'Static wind response ({n_Nw_sw_cases} worst 1h-events)')
+        for case in range(C1_n_Nw_sw_cases):
+            label1, label2, label3 = ('Cos rule - Homog. (all cases)', '3D skew wind - Homog. (all cases)', '3D skew wind - Inhomog. (all cases)') if case == 0 else (None, None, None)
+            beta_DB_1_case = beta_DB_func(C1_Hw_beta_0[case][0])
+            # arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            # arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(C1_Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=C1_Hw_U_bar[case,0]*3-np.min(C1_Hw_U_bar[:,0])*3+3, alpha=0.4, c='green' , edgecolors='none', label=label2)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(C2_Hw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=C2_Hw_U_bar[case,0]*3-np.min(C2_Hw_U_bar[:,0])*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(C2_Nw_D_loc[case][:n_g_nodes, dof])), dof), marker='o', s=C2_Nw_U_bar[case,0]*3-np.min(C2_Nw_U_bar[:,0])*3+3, alpha=0.4, c='orange', edgecolors='none', label=label2)
+        # Plotting brigde axis
+        bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
+        ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
+        # plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.54,0.115), rotation=23)
+        plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.555, 0.055), rotation=22)  # use without legend
+        # plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.585, 0.920))  # use without legend
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)  # use with rectangular plot
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(rf'results\C1VSC2_sw_scatt_wrtBeta_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+
+    ######################################################################################################
+    # BUFFETING
+    ######################################################################################################
+    # Getting the Nw wind properties into the same df
+    C1_my_Nw_buf_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting_cos_rule')
+    C2_my_Nw_buf_path = os.path.join(os.getcwd(), r'intermediate_results', 'buffeting_3D')
+    C1_n_Nw_buf_cases = np.max([int(''.join(i for i in f if i.isdigit())) for f in os.listdir(C1_my_Nw_buf_path)]) + 1  # use +1 to count for the 0.
+    C2_n_Nw_buf_cases = np.max([int(''.join(i for i in f if i.isdigit())) for f in os.listdir(C2_my_Nw_buf_path)]) + 1  # use +1 to count for the 0.
+    assert C1_n_Nw_buf_cases == C2_n_Nw_buf_cases
+    C1_std_delta_local = {'Nw':np.nan*np.zeros((C1_n_Nw_buf_cases, n_g_nodes, 6)),
+                          'Hw':np.nan*np.zeros((C1_n_Nw_buf_cases, n_g_nodes, 6)),}  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(C1_n_Nw_buf_cases):
+        Nw_path = os.path.join(C1_my_Nw_buf_path, f'Nw_buffeting_{i}.json')
+        Hw_path = os.path.join(C1_my_Nw_buf_path, f'Hw_buffeting_{i}.json')
+        with open(Nw_path, 'r') as f:
+            C1_std_delta_local['Nw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+        with open(Hw_path, 'r') as f:
+            C1_std_delta_local['Hw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+    C2_std_delta_local = {'Nw': np.nan * np.zeros((C2_n_Nw_buf_cases, n_g_nodes, 6)),
+                          'Hw': np.nan * np.zeros((C2_n_Nw_buf_cases, n_g_nodes, 6)), }  # RMS = Root Mean Square, such that the U_bar averages along the fjord are energy-equivalent
+    for i in range(C2_n_Nw_buf_cases):
+        Nw_path = os.path.join(C2_my_Nw_buf_path, f'Nw_buffeting_{i}.json')
+        Hw_path = os.path.join(C2_my_Nw_buf_path, f'Hw_buffeting_{i}.json')
+        with open(Nw_path, 'r') as f:
+            C2_std_delta_local['Nw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+        with open(Hw_path, 'r') as f:
+            C2_std_delta_local['Hw'][i] = np.array(json.load(f))  # shape (n_cases, n_g_nodes, n_dof)
+
+    for dof in [1,2,3]:
+        ##################################
+        # LINE PLOTS
+        ##################################
+        str_dof = ["$\sigma_x$ $[m]$",
+                   "$\sigma_y$ $[m]$",
+                   "$\sigma_z$ $[m]$",
+                   "$\sigma_{rx}$ $[\degree]$",
+                   "$\sigma_{ry}$ $[\degree]$",
+                   "$\sigma_{rz}$ $[\degree]$"]
+        plt.figure(dpi=400)
+        # plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        for case in range(C1_n_Nw_buf_cases):
+            label1, label2, label3 = ('Cos rule - Homog. (all cases)', '3D skew wind - Homog. (all cases)', '3D skew wind - Inhomog. (all cases)') if case == 0 else (None, None, None)
+            plt.plot(x, func(C1_std_delta_local['Hw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='green' , label=label1)
+            plt.plot(x, func(C2_std_delta_local['Hw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='blue'  , label=label2)
+            plt.plot(x, func(C2_std_delta_local['Nw'][case,:, dof], dof), lw=1.2, alpha=0.25, c='orange', label=label3)
+        plt.plot(x, func(np.max(np.array([C1_std_delta_local['Hw'][case,:, dof] for case in range(C1_n_Nw_buf_cases)]), axis=0), dof), alpha=0.7, c='green' , lw=3, label=f'Cos rule - Homog. (max.)')
+        plt.plot(x, func(np.max(np.array([C2_std_delta_local['Hw'][case,:, dof] for case in range(C2_n_Nw_buf_cases)]), axis=0), dof), alpha=0.7, c='blue'  , lw=3, label=f'3D skew wind - Homog. (max.)')
+        plt.plot(x, func(np.max(np.array([C2_std_delta_local['Nw'][case,:, dof] for case in range(C2_n_Nw_buf_cases)]), axis=0), dof), alpha=0.7, c='orange', lw=3, label=f'3D skew wind - Inhomog. (max.)')
+        plt.xlabel('x [m]  (Position along the arc)')
+        plt.ylabel(str_dof[dof])
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\C1VSC2_buf_lines_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ##################################
+        # SCATTER PLOTS (from intermediate results)
+        ##################################
+        str_dof = ["$\sigma_{x, max}$ $[m]$",
+                   "$\sigma_{y, max}$ $[m]$",
+                   "$\sigma_{z, max}$ $[m]$",
+                   "$\sigma_{rx, max}$ $[\degree]$",
+                   "$\sigma_{ry, max}$ $[\degree]$",
+                   "$\sigma_{rz, max}$ $[\degree]$"]
+        ########## w.r.t. U ##########
+        plt.figure(dpi=400)
+        # plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        for case in range(C1_n_Nw_buf_cases):
+            label1, label2, label3 = ('Cos rule - Homog. (all cases)', '3D skew wind - Homog. (all cases)', '3D skew wind - Inhomog. (all cases)') if case == 0 else (None, None, None)
+            beta_DB_1_case = beta_DB_func(C1_Hw_beta_0[case][0])
+            arrow = matplotlib.markers.MarkerStyle(marker=my_down_arrow)
+            arrow._transform = arrow.get_transform().rotate_deg(deg(-beta_DB_1_case))  # it needs to be a negative rotation because of the convention in rotate_deg() method
+            plt.scatter(C1_Hw_U_bar[case,0], func(np.max(np.abs(C1_std_delta_local['Hw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='green' , edgecolors='none', label=label1)
+            plt.scatter(C2_Hw_U_bar[case,0], func(np.max(np.abs(C2_std_delta_local['Hw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+            plt.scatter(C2_Hw_U_bar[case,0], func(np.max(np.abs(C2_std_delta_local['Nw'][case,:, dof])), dof), marker=arrow, s=40, alpha=0.4, c='orange', edgecolors='none', label=label3)
+        plt.xlabel(r'$U^H$ [m/s]')
+        plt.ylabel(str_dof[dof])
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(rf'results\C1VSC2_buf_scatt_wrtU_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+        ########## w.r.t. BETA ##########
+        fig = plt.figure(dpi=400)
+        ax = fig.add_subplot(111, projection='polar')
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        # plt.title(f'Buffeting response ({n_Nw_buf_cases} worst 1h-events)')
+        for case in range(C1_n_Nw_buf_cases):
+            label1, label2, label3 = ('Cos rule - Homog. (all cases)', '3D skew wind - Homog. (all cases)', '3D skew wind - Inhomog. (all cases)') if case == 0 else (None, None, None)
+            beta_DB_1_case = beta_DB_func(C1_Hw_beta_0[case][0])
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(C1_std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=C1_Hw_U_bar[case,0]*3-np.min(C1_Hw_U_bar[:,0])*3+3, alpha=0.4, c='green' , edgecolors='none', label=label1)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(C2_std_delta_local['Hw'][case,:, dof])), dof), marker='o', s=C1_Hw_U_bar[case,0]*3-np.min(C1_Hw_U_bar[:,0])*3+3, alpha=0.4, c='blue'  , edgecolors='none', label=label2)
+            plt.scatter(beta_DB_1_case, func(np.max(np.abs(C2_std_delta_local['Nw'][case,:, dof])), dof), marker='o', s=C1_Nw_U_bar[case,0]*3-np.min(C1_Nw_U_bar[:,0])*3+3, alpha=0.4, c='orange', edgecolors='none', label=label3)
+        # Plotting brigde axis
+        bridge_node_angle, bridge_node_radius_norm = get_bridge_node_angles_and_radia_to_plot(ax)
+        ax.plot(bridge_node_angle, bridge_node_radius_norm, linestyle='-', linewidth=3., alpha=0.4, color='black', marker="None", zorder=1.0)#,zorder=k+1)
+        # plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.54,0.115), rotation=23)
+        plt.annotate(r'$\beta^H_{Cardinal}$ [deg]', xycoords='figure fraction', xy=(0.555, 0.055), rotation=22)  # use without legend
+        # plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.58, 0.89))
+        plt.annotate(str_dof[dof], xycoords='figure fraction', xy=(0.585, 0.920))  # use without legend
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.075), ncol=2)  # use with polar plot
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=2)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(rf'results\C1VSC2_buf_scatt_wrtBeta_Nw_VS_Hw_dof_{dof}.png')
+        plt.show()
+
+
+
+
+
 
 
 
