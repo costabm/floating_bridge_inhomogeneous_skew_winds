@@ -1206,7 +1206,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     theta_0 = 0
     print(f'{Nw_or_equiv_Hw} case index: {Nw_idx}') if Nw_idx is not None else 'Running original homogeneous wind only.'
     if Nw_idx is not None:  # Inomogeneous wind:
-        with open(fr'intermediate_results\\static_wind\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
+        with open(fr'intermediate_results\\static_wind_{skew_approach}\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
             Nw_1_case = json.load(f)
 
     print('beta_DB (deg) = '+str(np.round(deg(beta_DB), 1)))
