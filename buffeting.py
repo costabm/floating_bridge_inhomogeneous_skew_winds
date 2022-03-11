@@ -1731,7 +1731,7 @@ def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_sim
                 results_df_all_g_nodes.at[case_idx, f'g_node_{n}_std_dof_{i}'] = std_delta_local[i,n]
 
         # Saving intermediate results (redundant) to avoid losing important data that took a long time to obtain
-        with open(rf'intermediate_results\\buffeting\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
+        with open(rf'intermediate_results\\buffeting_{skew_approach}\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
             json.dump(std_delta_local.T.tolist(), f, ensure_ascii=False, indent=4)
 
     # Exporting the results to a table

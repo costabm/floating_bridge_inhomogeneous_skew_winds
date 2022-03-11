@@ -21,7 +21,7 @@ pontoons_s = np.cumsum([100]*49)  # Total of 49 pontoons: np.cumsum([100]*49)
 zbridge = 14.5  # m. (deck height above water, measured at the Shear Centre!)
 p_freeboard = 4  # m. (height of pontoon above water level)
 CS_height = 4  # m. CS height
-FEM_max_length = 33.34  # Choose: 10,12.5,14.29,16.67,20,25,33.34,50,100  # Horizontal response->100 (accurate to 0.3%). Vertical->50(6.2%) 33.34(2.6%) 25(1.4%). Torsional->50(8.1%) 33.34(3.6%) 25(1.9%)
+FEM_max_length = 25  # Choose: 10,12.5,14.29,16.67,20,25,33.34,50,100  # Horizontal response->100 (accurate to 0.3%). Vertical->50(6.2%) 33.34(2.6%) 25(1.4%). Torsional->50(8.1%) 33.34(3.6%) 25(1.9%)
 vertical_curvature = False  # False: horizontal bridge girder.
 bridge_shape = 'C'
 # Dependent variables

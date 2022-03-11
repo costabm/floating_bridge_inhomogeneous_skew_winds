@@ -269,11 +269,11 @@ if run_new_Nw_sw:
     Nw_all = NwAllCases()
     sort_by = 'ws_max'
     n_Nw_cases = 'all'
-    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=17.2)
+    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=25.2)
     Nw_all.set_structure(g_node_coor, p_node_coor, alpha)
     Nw_all.set_Nw_wind(n_Nw_cases=n_Nw_cases, force_Nw_U_and_N400_U_to_have_same=None, Iu_model='ANN', cospec_type=2, f_array='static_wind_only')
-    Nw_all.plot_Ii_at_WRF_points()
-    Nw_all.plot_U(df_WRF_idx=-1)
+    # Nw_all.plot_Ii_at_WRF_points()
+    # Nw_all.plot_U(df_WRF_idx=-1)
 
     Nw_all.set_equivalent_Hw_U_bar_and_beta(U_method='quadratic_vector_mean', beta_method='quadratic_vector_mean')
     Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='Hw_U*Hw_sigma_i=mean(Nw_U*Nw_sigma_i)')

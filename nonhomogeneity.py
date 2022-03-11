@@ -304,7 +304,8 @@ def equivalent_Hw_Ii_all(Nw_U_bar, Hw_U_bar, Nw_Ii, g_node_num, eqv_Hw_Ii_method
     elif eqv_Hw_Ii_method == 'U2_weighted_mean':
         Hw_Ii_all = np.repeat(np.average(Nw_Ii, axis=1, weights=Nw_U_bar_repeated ** 2)[:, None, :], repeats=g_node_num, axis=1)  # the weighted averages were carefully tested
     elif eqv_Hw_Ii_method == 'Hw_U*Hw_sigma_i=mean(Nw_U*Nw_sigma_i)':
-        Hw_Ii_all = np.repeat((np.sum(Nw_U_bar_repeated**2 * Nw_Ii, axis=1)/(g_node_num*Hw_U_bar**2[:,0]))[:, None, :], repeats=g_node_num, axis=1)  # see eq. 22 of the inhomogeneity paper
+        Hw_U_bar_repeated = np.repeat(Hw_U_bar[:, :, None], repeats=3, axis=-1)
+        Hw_Ii_all = np.repeat((np.sum(Nw_U_bar_repeated**2 * Nw_Ii, axis=1)/np.sum(Hw_U_bar_repeated**2, axis=1))[:, None, :], repeats=g_node_num, axis=1)  # see eq. 22 of the inhomogeneity paper
     return Hw_Ii_all
 
 
