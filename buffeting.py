@@ -1206,7 +1206,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     theta_0 = 0
     print(f'{Nw_or_equiv_Hw} case index: {Nw_idx}') if Nw_idx is not None else 'Running original homogeneous wind only.'
     if Nw_idx is not None:  # Inomogeneous wind:
-        with open(fr'intermediate_results\\static_wind_{skew_approach}\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
+        with open(fr'intermediate_results\\static_wind_{aero_coef_method}\\Nw_dict_{Nw_idx}.json', 'r', encoding='utf-8') as f:
             Nw_1_case = json.load(f)
 
     print('beta_DB (deg) = '+str(np.round(deg(beta_DB), 1)))
@@ -1668,7 +1668,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
     # Execution info
     stop_time_3 = np.round((time.time() - start_time_3))
     print('Kse & Cse, Pre-processing, Buffeting, and Post-processing times (s): ' + str(stop_time_Kse_Cse) + ', ' + str(stop_time_1) + ', ' + str(stop_time_2) + \
-          ', ' + str(stop_time_3) + '. Total time (s): ' + str(stop_time_Kse_Cse+stop_time_1+stop_time_2+stop_time_3))
+          ', ' + str(stop_time_3) + '. Total time (s): ' + str(stop_time_1+stop_time_2+stop_time_3))
 
     return {'std_delta_local': std_delta_local,
             'cospec_type':cospec_type,
@@ -1731,7 +1731,7 @@ def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_sim
                 results_df_all_g_nodes.at[case_idx, f'g_node_{n}_std_dof_{i}'] = std_delta_local[i,n]
 
         # Saving intermediate results (redundant) to avoid losing important data that took a long time to obtain
-        with open(rf'intermediate_results\\buffeting_{skew_approach}\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
+        with open(rf'intermediate_results\\buffeting_{aero_coef_method}\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
             json.dump(std_delta_local.T.tolist(), f, ensure_ascii=False, indent=4)
 
     # Exporting the results to a table

@@ -914,13 +914,10 @@ class NwAllCases:
         wrax = {}
         # for pt_idx, pt in enumerate(bj_pt_strs):
         #     plt.scatter(bj_coors[pt_idx][0], bj_coors[pt_idx][1], marker='o', facecolors='black', edgecolors='black', s=10, label='Measurement location' if pt==0 else None)
-
         plt.xlabel('Easting [m]')
         plt.ylabel('Northing [m]')
-
         # plt.legend() #[handles[idx] for idx in order], [labels[idx] for idx in order], handletextpad=0.1)
         # plt.tight_layout(pad=0.05)
-
         Iu_min_all_pts_ANN = np.min(np.array([dict_Iu_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
         Iu_max_all_pts_ANN = np.max(np.array([dict_Iu_ANN_preds[pt]['Iu'] for pt in bj_pt_strs]))
         Iu_min_all_pts_EN  = np.min(np.array([dict_Iu_EN_preds[pt]['Iu']  for pt in bj_pt_strs]))
@@ -944,12 +941,13 @@ class NwAllCases:
                                       axes_class=WindroseAxes)  # specify the class of the axe
                 # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
                 # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
-                wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
-                                                                                      (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
+                # wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+                #                                                                       (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)), alpha=1.00)
+                wrax[pt].contourf(wd, Iu, bins=256, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+                                                                                      (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)), alpha=1.0)
                 wrax[pt].tick_params(labelleft=False, labelbottom=False)
-                wrax[pt].patch.set_alpha(0)
+                # wrax[pt].patch.set_alpha(0)
                 wrax[pt].axis('off')
-
         cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax, pad=0.02)
         cb.set_label('$I_u$')
         main_ax.axis('off')
@@ -992,10 +990,12 @@ class NwAllCases:
                                       axes_class=WindroseAxes)  # specify the class of the axe
                 # print(f'Min: {(Iu_min-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
                 # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
-                wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+                # wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
+                #                                                                       (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
+                wrax[pt].contourf(wd, Iu, bins=256, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
                                                                                       (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
                 wrax[pt].tick_params(labelleft=False, labelbottom=False)
-                wrax[pt].patch.set_alpha(0)
+                # wrax[pt].patch.set_alpha(0)
                 wrax[pt].axis('off')
 
         cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax, pad=0.02)

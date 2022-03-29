@@ -256,6 +256,8 @@ if run_modal_analysis_after_static_loads:
 ########################################################################################################################
 # Separate nonhomogeneous static wind (Nw_sw) analysis. This will store the results of the Nw_sw analysis into a folder, for efficiency! This folder is later accessed by buffeting.py
 ########################################################################################################################
+static_aero_coef_method = 'cos_rule'
+static_skew_approach = '2D_cos_law'
 if run_new_Nw_sw:
     # Nw = NwOneCase()
     # Nw.set_df_WRF(sort_by='ws_max')
@@ -278,11 +280,11 @@ if run_new_Nw_sw:
     Nw_all.set_equivalent_Hw_U_bar_and_beta(U_method='quadratic_vector_mean', beta_method='quadratic_vector_mean')
     Nw_all.set_equivalent_Hw_Ii(eqv_Hw_Ii_method='Hw_U*Hw_sigma_i=mean(Nw_U*Nw_sigma_i)')
 
-    static_aero_coef_method = '2D_fit_cons'
-    static_skew_approach = '3D'
     print(f'Static analysis. static_aero_coef_method: {static_aero_coef_method}. static_skew_approach: {static_skew_approach}')
     Nw_g_node_coor_all, Nw_p_node_coor_all, Nw_D_glob_all, Nw_D_loc_all, Nw_R_loc_all, Nw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.U_bar, Nw_all.beta_bar, Nw_all.theta_bar, aero_coef_method=static_aero_coef_method, n_aero_coef=6, skew_approach=static_skew_approach)
     Hw_g_node_coor_all, Hw_p_node_coor_all, Hw_D_glob_all, Hw_D_loc_all, Hw_R_loc_all, Hw_R6g_all = Nw_static_wind_all(g_node_coor, p_node_coor, alpha, Nw_all.equiv_Hw_U_bar, Nw_all.equiv_Hw_beta_bar, Nw_all.equiv_Hw_theta_bar, aero_coef_method=static_aero_coef_method, n_aero_coef=6, skew_approach=static_skew_approach)
+
+    raise Exception  # remove this (used for safety)
 
     # Other post-processing
     Nw_R6g_abs_all = np.abs(Nw_R6g_all)  # Instead of plotting envelopes of bending moments, it's better to just plot their absolute values
@@ -304,10 +306,11 @@ if run_new_Nw_sw:
         for key in Nw_dict_all_results.keys():
             if isinstance(Nw_dict_all_results[key], list):
                 Nw_dict_1_case[key]=Nw_dict_all_results[key][n]
-        with open(r'intermediate_results\\static_wind_'+static_skew_approach+r'\\Nw_dict_'+str(n)+'.json', 'w', encoding='utf-8') as f:
+        with open(r'intermediate_results\\static_wind_'+static_aero_coef_method+r'\\Nw_dict_'+str(n)+'.json', 'w', encoding='utf-8') as f:
             json.dump(Nw_dict_1_case, f, ensure_ascii=False, indent=4)
 
-n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind_'+static_skew_approach+r'\\') if 'Nw_dict_' in fname])
+
+n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind_'+static_aero_coef_method+r'\\') if 'Nw_dict_' in fname])
 
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -349,9 +352,9 @@ include_KG_cases = [True]  # include the effects of geometric stiffness (both in
 n_aero_coef_cases = [6]  # Include 3 coef (Drag, Lift, Moment), 4 (..., Axial) or 6 (..., Moment xx, Moment zz). Only working for the '3D' skew wind approach!!
 include_SE_cases = [True]  # include self-excited forces or not. If False, then flutter_derivatives_type must be either '3D_full' or '2D_full'
 make_M_C_freq_dep_cases = [False]  # include frequency-dependent added masses and added damping, or instead make an independent approach (using only the dominant frequency of each dof)
-aero_coef_method_cases = ['2D_fit_cons']  # method of interpolation & extrapolation. '2D_fit_free', '2D_fit_cons', 'cos_rule', '2D'
-skew_approach_cases = ['3D']  # '3D', '2D', '2D+1D', '2D_cos_law'
-flutter_derivatives_type_cases = ['3D_full']  # '3D_full', '3D_Scanlan', '3D_Scanlan confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_full','2D_in_plane'
+aero_coef_method_cases = ['cos_rule']  # method of interpolation & extrapolation. '2D_fit_free', '2D_fit_cons', 'cos_rule', '2D'
+skew_approach_cases = ['2D_cos_law']  # '3D', '2D', '2D+1D', '2D_cos_law'
+flutter_derivatives_type_cases = ['2D_in_plane']  # '3D_full', '3D_Scanlan', '3D_Scanlan confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_full','2D_in_plane'
 n_freq_cases = [128]  # Use 1024 with 'equal_width_bins' or 128 with 'equal_energy_bins'
 f_min_cases = [0.002]  # Hz. Use 0.002
 f_max_cases = [0.5]  # Hz. Use 0.5! important to not overstretch this parameter

@@ -158,11 +158,11 @@ def plot_WRF_grids_on_topography():
     wrf4km_grid = np.delete(wrf4km_grid, np.where(np.all(wrf4km_grid - wrf4km_p_ref == [0,0], axis=1))[0][0], axis=0)  # removing the ref point, which is represented separately with another marker
     # Plotting all nodes of the bridge and the mini-grid
     plt.scatter(bridge_WRF_nodes_coor[:,1], bridge_WRF_nodes_coor[:,0], c='black', marker='s', s=10, edgecolors='none', alpha=0.8, label='Interp. nodes')
-    plt.scatter(lat_lon_major_grid[:, 1], lat_lon_major_grid[:, 0], c='black', s=2, marker='o', edgecolors='none', alpha=0.6, label='WRF 500m grid', zorder=0.9)
+    plt.scatter(lat_lon_major_grid[:, 1], lat_lon_major_grid[:, 0], c='black', s=2, marker='o', edgecolors='none', alpha=0.6, label='WRF 500 m grid', zorder=0.9)
     plt.plot(bridge_WRF_nodes_coor[:, 1], bridge_WRF_nodes_coor[:, 0], c='black', alpha=0.6, label='Bridge axis', lw=0.5)
     # plt.scatter(lat_lon_mini_grid[:,1], lat_lon_mini_grid[:,0], c='dodgerblue', s=6, edgecolors='none', alpha=0.8, label='Mini-grid WRF-500m')
-    plt.scatter(wrf4km_grid[:,0], wrf4km_grid[:,1], c='black', s=25, edgecolors='none', marker='^', alpha=0.8, label='WRF 4km grid')
-    plt.scatter(wrf4km_p_ref[0],wrf4km_p_ref[1], c='black', s=70, edgecolors='none', marker='*', alpha=0.8, label='WRF 4km ref.')
+    plt.scatter(wrf4km_grid[:,0], wrf4km_grid[:,1], c='black', s=25, edgecolors='none', marker='^', alpha=0.8, label='WRF 4 km grid')
+    plt.scatter(wrf4km_p_ref[0],wrf4km_p_ref[1], c='black', s=70, edgecolors='none', marker='*', alpha=0.8, label='WRF 4 km ref.')
     plt.scatter(mast_positions[:, 0], mast_positions[:, 1], c='none', marker='o', s=60, edgecolors='black', alpha=0.8, label='Wind masts')
     plt.xlim(lon_lims)
     plt.ylim(lat_lims)
@@ -178,7 +178,6 @@ def plot_WRF_grids_on_topography():
 def plot_U_roses_on_topography():
 
     n_WRF_nodes = n_bridge_WRF_nodes
-
     bj_coors = np.array([[-34449.260, 6699999.046],
                          [-34098.712, 6700359.394],
                          [-33786.051, 6700752.909],
@@ -195,28 +194,24 @@ def plot_U_roses_on_topography():
     Nw_all = NwAllCases()
     sort_by = 'ws_max'
     n_Nw_cases = 'all'
-    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=17.2)
+    Nw_all.set_df_WRF(sort_by=sort_by, U_tresh=18)
     df_WRF = Nw_all.df_WRF
 
-
     # WINDROSES
+    plt.rcParams['legend.title_fontsize'] = 40
     wd = df_WRF['wd_03']
     ws = df_WRF['ws_03']
     plt.figure(dpi=1000)
     ax = WindroseAxes.from_ax()
-    ax.bar(wd, ws, normed=True, opening=0.0, edgecolor='white', cmap=plt.get_cmap('Reds'), bins=[0,10,15,20], nsector=1)
+    ax.bar(wd, ws, normed=True, opening=0.0, edgecolor='white', cmap=plt.get_cmap('Blues'), bins=[0,10,15,20], nsector=1)
     ax.set_xticklabels(['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE'])
     plt.legend(prop={'size': 40})
     ax.get_legend().set_title("Wind speeds [m/s]:")
     ax.set_facecolor('red')
     plt.axis('off')
-    plt.rcParams['legend.title_fontsize'] = 40
     plt.savefig('plots/wind_roses_on_topography_legend.png')
     plt.show()
     plt.close()
-
-
-
 
     # WINDROSES ON TOPOGRAPHY PLOTS
     cmap_colors = np.vstack((lighten_color(colors.to_rgba('skyblue'), amount=0.3), plt.get_cmap('gist_earth')(np.linspace(0.3, 1.0, 255))))  # choose the cmap colors here
@@ -252,8 +247,8 @@ def plot_U_roses_on_topography():
             ws = df_WRF['ws_'+pt]
 
             wrax[pt] = inset_axes(main_ax,
-                                  width=0.65,  # size in inches
-                                  height=0.65,  # size in inches
+                                  width=0.55,  # size in inches
+                                  height=0.55,  # size in inches
                                   loc='center',  # center bbox at given position
                                   bbox_to_anchor=(bj_coors[pt_idx][0], bj_coors[pt_idx][1]),  # position of the axe
                                   bbox_transform=main_ax.transData,  # use data coordinate (not axe coordinate)
@@ -262,11 +257,13 @@ def plot_U_roses_on_topography():
             # # print(f'Max; {(Iu_max-Iu_min_all_pts)/(Iu_max_all_pts-Iu_min_all_pts)}')
             # wrax[pt].bar(wd, Iu, opening=1.0, nsector=360, cmap=truncate_colormap(matplotlib.pyplot.cm.Reds, (Iu_min - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts),
             #                                                                       (Iu_max - Iu_min_all_pts) / (Iu_max_all_pts - Iu_min_all_pts)))
-            wrax[pt].bar(wd, ws, normed=True, opening=0.8, edgecolor='none', cmap=plt.get_cmap('Reds'), bins=[0, 10, 15, 20], nsector=12, alpha=0.8)
-            wrax[pt].tick_params(labelleft=False, labelbottom=False)
-            wrax[pt].patch.set_alpha(0)
-            wrax[pt].axis('off')
-
+            wrax[pt].bar(wd, ws, normed=True, opening=0.88, edgecolor='none', cmap=plt.get_cmap('Blues'), bins=[0, 10, 15, 20], nsector=12, alpha=1.00)
+            wrax[pt].tick_params(labelleft=False, labelbottom=False, top=False, bottom=False, left=False, right=False, grid_alpha = 0)
+            wrax[pt].patch.set_alpha(0.4)
+            # wrax[pt].spines['polar'].set_visible(False)
+            wrax[pt].spines['polar']._linewidth = 0.2
+            wrax[pt].spines['polar']._alpha = 0.6
+            # wrax[pt].axis('off')
     # cb = plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(vmin=Iu_min_all_pts, vmax=Iu_max_all_pts), cmap=matplotlib.pyplot.cm.Reds), ax=main_ax, pad=0.02)
     # cb.set_label('$I_u$')
     main_ax.axis('off')
@@ -274,10 +271,6 @@ def plot_U_roses_on_topography():
     plt.savefig('plots/wind_roses_on_topography.png')
     plt.show()
     plt.close()
-
-    pl
-    plt.legend()
-    plt.show()
 
 
 
