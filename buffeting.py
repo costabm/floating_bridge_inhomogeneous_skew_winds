@@ -384,6 +384,7 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
     iLj = iLj_func(g_node_coor)
     Cij = Cij_func(cond_rand_C=False)
     S_a = S_a_func(g_node_coor, beta_DB, f_array, Ii_simplified)  # not necessary to change from Gs to Gw
+    n_g_nodes = len(g_node_coor[:, 2])
 
     # Transforming coordinates, because the delta_xyz needs to be in Gw for the Cij operations to make sense.
     beta_0 = beta_0_func(beta_DB)
@@ -406,11 +407,47 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
         S_aa_omega = np.einsum('wmna,wmna->wmna' , np.sqrt( np.einsum('wma,wna->wmna', S_a, S_a)) , R_aa )  # S_a is only (3,) because assumed no cross-correlation between components
         S_aa = 2*np.pi * S_aa_omega  # not intuitive! S(f)*delta_f = S(w)*delta_w. See eq. (2.75) from Strommen.
     # Alternative 2: Coherence and cross-spectrum (adapted Davenport for 3D). Developed in Hertz!
-    elif cospec_type == 2:
+    elif cospec_type in [2,3,4,5]:
         f_hat_aa = np.einsum('f,mna->fmna', f_array , np.divide(np.sqrt( (Cij[:,0]*delta_xyz[:,:,0,None])**2 + (Cij[:,1]*delta_xyz[:,:,1,None])**2 + (Cij[:,2]*delta_xyz[:,:,2,None])**2 )  ,  U_bar_avg[:,:,None] ))  # This is actually in omega units, not f_array, according to eq.(10.35b)! So: rad/s
         f_hat = f_hat_aa  # this was confirmed to be correct with a separate 4 loop "f_hat_aa_confirm" and one Cij at the time
         R_aa = np.e**(-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)
         S_aa = np.einsum('fmna,fmna->fmna' , np.sqrt( np.einsum('fma,fna->fmna', S_a, S_a)) , R_aa )  # S_a is only (3,) because assumed no cross-correlation between components
+        if cospec_type in [3,4,5]:
+            if cospec_type == 3:  # This will additionally consider the uw off-diagonal, thus returning an array with an extra dimension
+                # According to (Kaimal et al, 1972)
+                z = g_node_coor[:, 2]  # m. Meters above sea level
+                Ii = Ii_func(g_node_coor, beta_DB, Ii_simplified)
+                sigma_n = np.einsum('na,n->na', Ii, U_bar)  # standard deviation of the turbulence, for each node and each component.
+                f_hat_z = np.einsum('f,n->fn', f_array, z/U_bar)  # normalized frequency, w.r.t. z (height above ground). according to (Kaimal, 1972)
+                u_star = sigma_n[:,0] / 2.5 # shape (n,). friction velocity, according to (Solari and Picardo, 2001) https://doi.org/10.1016/S0266-8920(00)00010-2 (below Table 3), and (Midjiyawa et al, 2021) https://doi.org/10.1016/j.jweia.2021.104585
+                # Now the off-diagonal uw. See (LD Zhu, 2002), eq. 5.29b, 5-31b and 5-27. BUT the mean in eq. 5-31b is instead replaced by sqrt(f_hat_uu*f_hat_ww) to match e.g. (Katsuchi et al, 1999) https://doi.org/10.1061/(ASCE)0733-9445(1999)125:1(60) as suggested by 1 reviewer:
+                C_uw = np.einsum('fn,fn->fn', np.einsum('n,f->fn', -u_star**2, 1 / f_array), (14*f_hat_z)/(1+9.6*f_hat_z)**2.4)
+                f_hat_uw = np.sqrt(f_hat_aa[:,:,:,0] * f_hat_aa[:,:,:,2])
+                # S_uw = 1.0 * np.einsum('fmn,fmn->fmn', np.sqrt(np.einsum('fm,fn->fmn', C_uw, C_uw)), np.e ** (-f_hat_uw))
+                # print('TESTING NEGATIVE SIGN. DELETE BELOW')
+                S_uw = 1.0 * np.einsum('fmn,fmn->fmn', -np.sqrt(np.einsum('fm,fn->fmn',C_uw,C_uw)), np.e**(-f_hat_uw))
+                # print('TESTING NEGATIVE SIGN. DELETE ABOVE')
+            if cospec_type == 4:  # This will additionally consider the uw off-diagonal, thus returning an array with an extra dimension. This time, following the suspected reviewer (Pascal Hemon) suggestion in his paper doi:10.1016/j.jweia.2006.04.003
+                # The following is the eq. (12) from (Hemon and Santi, 2007) doi:10.1016/j.jweia.2006.04.003
+                S_uw = np.einsum('fmn,fmn->fmn', np.sqrt(np.sqrt(np.einsum('fm,fn->fmn', S_a[:,:,0], S_a[:,:,0])) * np.sqrt(np.einsum('fm,fn->fmn', S_a[:,:,2], S_a[:,:,2]))), np.sqrt(R_aa[:,:,:,0]*R_aa[:,:,:,2]))
+            if cospec_type == 5:  # This will additionally consider the uw off-diagonal, thus returning an array with an extra dimension, following strictly (Solari and Tubino, 2002)
+                # According to (Kaimal et al, 1972)
+                Ii = Ii_func(g_node_coor, beta_DB, Ii_simplified)
+                sigma_n = np.einsum('na,n->na', Ii, U_bar)  # standard deviation of the turbulence, for each node and each component.
+                u_star = sigma_n[:,0] / 2.5 # shape (n,). friction velocity, according to (Solari and Picardo, 2001) https://doi.org/10.1016/S0266-8920(00)00010-2 (below Table 3), and (Midjiyawa et al, 2021) https://doi.org/10.1016/j.jweia.2021.104585
+                A_uw = 1.11 * (iLj[:,2,0] / iLj[:,0,0])**0.21  # shape (n,)
+                kapa_uw = A_uw * sigma_n[:,0] * sigma_n[:,2] / u_star**2  # shape (n,)
+                w_array = f_array * 2*np.pi
+                Coh_uw_omegas = np.einsum('n,wn->wn', -1/kapa_uw, 1/np.sqrt(1+0.4*(np.einsum('w,n->wn', w_array/(2*np.pi), iLj[:,0,0]/U_bar))**2))
+                # Coh_uw = 2*np.pi * Coh_uw_omegas  # shape (f,n). Converting single-sided spectrum from rads to Hertz according to eq. (2.75) in Strommen.
+                psi = np.arctan(S_a[:,:,0]-S_a[:,:,2]-np.sqrt((S_a[:,:,0]-S_a[:,:,2])**2+4*Coh_uw_omegas**2*S_a[:,:,0]*S_a[:,:,2])/(2*Coh_uw_omegas*np.sqrt(S_a[:,:,0]*S_a[:,:,2])))
+                S_uw = 1/2 * np.einsum('f,fmn->fmn', np.tan(2*psi[:,0]), S_aa[:,:,:,2] - S_aa[:,:,:,0], optimize=True)  # (eq. 29 from Solari and Tubino, 2002). To make this valid for a bridge with varying z coordinates, implement the Suw of eq. 28 instead!
+            zeros_fnm = np.zeros((len(f_array), n_g_nodes, n_g_nodes))
+            S_aa = np.array([[S_aa[:,:,:,0],     zeros_fnm,         S_uw],
+                             [    zeros_fnm, S_aa[:,:,:,1],    zeros_fnm],
+                             [         S_uw,     zeros_fnm, S_aa[:,:,:,2]]])  # new shape (abfmn)
+            S_aa = np.moveaxis(S_aa, 0, -1)  # shape (bfmna)
+            S_aa = np.moveaxis(S_aa, 0, -1)  # final shape (fmnab)
     # Plotting coherence along the g_nodes, respective to some node
     # cross_spec_1 = []
     # cross_spec_2 = []
@@ -518,6 +555,8 @@ def Nw_S_aa(g_node_coor, Nw_beta_0, Nw_theta_0, f_array, Nw_U_bar, Nw_Ii, cospec
         f_hat = f_hat_aa  # this was confirmed to be correct with a separate 4 loop "f_hat_aa_confirm" and one Cij at the time
         R_aa = np.e ** (-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)
         S_aa = np.einsum('fmna,fmna->fmna', np.sqrt(np.einsum('fma,fna->fmna', S_a, S_a)), R_aa)  # S_a is only (3,) because assumed no cross-correlation between components
+    else:
+        NotImplementedError
     return S_aa
 
 
@@ -1217,7 +1256,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         f_array = np.linspace(f_min, f_max, n_freq)
     elif f_array_type == 'equal_energy_bins':
         print("""When using f_array_type = 'equal_energy_bins' make sure f_array.npy and max_S_delta_local.npy are both representative of the response and are very well discretized""")
-        f_array = discretize_S_delta_local_by_equal_energies(f_array=np.load(r"intermediate_results\f_array.npy"), max_S_delta_local=np.load(r"intermediate_results\max_S_delta_local.npy") ,n_freq_desired=n_freq, plot=False)
+        f_array = discretize_S_delta_local_by_equal_energies(f_array=np.load(r"intermediate_results\f_array.npy"), max_S_delta_local=np.load(r"intermediate_results\max_S_delta_local.npy") ,n_freq_desired=copy.deepcopy(n_freq), plot=False)
 
     n_freq = len(f_array)
     w_array = f_array * 2 * np.pi
@@ -1408,11 +1447,11 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
 
     # Co-spectrum
     if Nw_idx is None:
-        S_aa_hertz = S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2)
+        S_aa_hertz = S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=cospec_type)
     else:  # Inhomogeneous S_aa needs to be calculated in real time!! It is way too large to be stored for all Nw cases...
         Nw_Ii = np.array(Nw_1_case[f'{Nw_or_equiv_Hw}_Ii'])  # this loads either Nw_Ii or the equivalent Hw_Ii
 
-        S_aa_hertz = Nw_S_aa(g_node_coor, beta_0, theta_0, f_array, U_bar, Nw_Ii, cospec_type=2)
+        S_aa_hertz = Nw_S_aa(g_node_coor, beta_0, theta_0, f_array, U_bar, Nw_Ii, cospec_type=cospec_type)
 
     S_aa_radians = S_aa_hertz / (2*np.pi)  # not intuitive! S(f)*delta_f = S(w)*delta_w. See eq. (2.68) from Strommen.
 
@@ -1444,7 +1483,10 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         # ----------------------------------------------------------------------------------------------------------------------
 
         for w in range(n_freq):
-            Sb_FF[w] = np.einsum('muc,mnc,nvc-> mnuv', np.conjugate(Pb), S_aa_radians[w], Pb, optimize=True)
+            if cospec_type in [1,2]:
+                Sb_FF[w] = np.einsum('muc,mnc,nvc-> mnuv', np.conjugate(Pb), S_aa_radians[w], Pb, optimize=True)
+            elif cospec_type in [3,4,5]:
+                Sb_FF[w] = np.einsum('mub,mnbc,nvc-> mnuv', np.conjugate(Pb), S_aa_radians[w], Pb, optimize=True)
             Sb_FF_tilde[w] = np.einsum('Mmu,mnuv,Nnv->MN', g_shapes, Sb_FF[w], g_shapes, optimize=True)
             # Modal response spectrum
             if 'complex' in dtype_in_response_spectra:
@@ -1731,8 +1773,9 @@ def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_sim
                 results_df_all_g_nodes.at[case_idx, f'g_node_{n}_std_dof_{i}'] = std_delta_local[i,n]
 
         # Saving intermediate results (redundant) to avoid losing important data that took a long time to obtain
-        with open(rf'intermediate_results\\buffeting_{aero_coef_method}\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
-            json.dump(std_delta_local.T.tolist(), f, ensure_ascii=False, indent=4)
+        if Nw_idx is not None:
+            with open(rf'intermediate_results\\buffeting_{aero_coef_method}\\{Nw_or_equiv_Hw}_buffeting_{Nw_idx}.json', 'w', encoding='utf-8') as f:
+                json.dump(std_delta_local.T.tolist(), f, ensure_ascii=False, indent=4)
 
     # Exporting the results to a table
     from time import gmtime, strftime

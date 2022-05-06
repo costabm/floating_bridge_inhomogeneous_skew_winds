@@ -147,7 +147,7 @@ def wind_field_3D_func(node_coor_wind, V, Ai, Cij, I, iLj, T, sample_freq, spect
         f_hat_alternative[:,:,0,0,:] = f_hat_u_alternative
         f_hat_alternative[:,:,1,1,:] = f_hat_v_alternative
         f_hat_alternative[:,:,2,2,:] = f_hat_w_alternative
-        R_aa_alternative = np.e**(-f_hat_alternative)
+        R_aa_alternative = np.e**(-f_hat_alternative) #  To include the complex part of the spectrum, this could be added here (according to Etienne): * np.e**(2*np.pi*1j * delta_x * freq / V_avg)
         S_aa_alternative = np.einsum('nmijf,nmijf->nmijf' , np.sqrt( np.einsum('nijf,mijf->nmijf' , autospec, autospec )) , R_aa_alternative, optimize=True)
         # Re-shaping S_aa from [g_nodes*g_nodes*3*3*freq] to [3*3*freq*g_nodes*g_nodes]
         S_aa_alternative_dummy = np.moveaxis(S_aa_alternative, -1, 0)

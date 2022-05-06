@@ -24,9 +24,9 @@ from static_loads import static_dead_loads_func, R_loc_func
 
 start_time = time.time()
 run_modal_analysis = False
-run_DL = False  # include Dead Loads, for all analyses.
+run_DL = True  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
-run_new_Nw_sw = True # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
+run_new_Nw_sw = False
 
 run_modal_analysis_after_static_loads = False
 
@@ -309,16 +309,17 @@ if run_new_Nw_sw:
         with open(r'intermediate_results\\static_wind_'+static_aero_coef_method+r'\\Nw_dict_'+str(n)+'.json', 'w', encoding='utf-8') as f:
             json.dump(Nw_dict_1_case, f, ensure_ascii=False, indent=4)
 
-
-n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind_'+static_aero_coef_method+r'\\') if 'Nw_dict_' in fname])
-
+try:
+    n_Nw_sw_cases = len([fname for fname in os.listdir(r'intermediate_results\\static_wind_'+static_aero_coef_method+r'\\') if 'Nw_dict_' in fname])
+except FileNotFoundError:
+    n_Nw_sw_cases = 0
 
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ########################################################################################################################
 #                                                AERODYNAMIC ANALYSES
 ########################################################################################################################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-cospec_type = 2  # 1: L.D.Zhu. 2: Davenport, adapted for a 3D wind field (9 coherence coefficients).
+cospec_type = 5  # Best choices: 2, or 5... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Hémon and Santi, 2007). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013).
 Ii_simplified = True  # Turbulence intensities. Simplified -> same turbulence intensities everywhere for all directions.
 include_modal_coupling = True  # True: CQC. False: SRSS. Off-diag of modal M, C and K in the Freq. Dom. (modal coupling).
 include_SE_in_modal = False  # includes effects from Kse when calculating mode shapes (only relevant in Freq. Domain). True gives complex mode shapes!
@@ -352,9 +353,9 @@ include_KG_cases = [True]  # include the effects of geometric stiffness (both in
 n_aero_coef_cases = [6]  # Include 3 coef (Drag, Lift, Moment), 4 (..., Axial) or 6 (..., Moment xx, Moment zz). Only working for the '3D' skew wind approach!!
 include_SE_cases = [True]  # include self-excited forces or not. If False, then flutter_derivatives_type must be either '3D_full' or '2D_full'
 make_M_C_freq_dep_cases = [False]  # include frequency-dependent added masses and added damping, or instead make an independent approach (using only the dominant frequency of each dof)
-aero_coef_method_cases = ['cos_rule']  # method of interpolation & extrapolation. '2D_fit_free', '2D_fit_cons', 'cos_rule', '2D'
-skew_approach_cases = ['2D_cos_law']  # '3D', '2D', '2D+1D', '2D_cos_law'
-flutter_derivatives_type_cases = ['2D_in_plane']  # '3D_full', '3D_Scanlan', '3D_Scanlan confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_full','2D_in_plane'
+aero_coef_method_cases = ['2D_fit_cons']  # method of interpolation & extrapolation. '2D_fit_free', '2D_fit_cons', 'cos_rule', '2D'
+skew_approach_cases = ['3D']  # '3D', '2D', '2D+1D', '2D_cos_law'
+flutter_derivatives_type_cases = ['3D_full']  # '3D_full', '3D_Scanlan', '3D_Scanlan confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_full','2D_in_plane'
 n_freq_cases = [128]  # Use 1024 with 'equal_width_bins' or 128 with 'equal_energy_bins'
 f_min_cases = [0.002]  # Hz. Use 0.002
 f_max_cases = [0.5]  # Hz. Use 0.5! important to not overstretch this parameter
@@ -362,12 +363,14 @@ f_array_type_cases = ['equal_energy_bins']  # 'equal_width_bins', 'equal_energy_
 # n_modes_cases = [(g_node_num+len(p_node_coor))*6]
 n_modes_cases = [100]
 n_nodes_cases = [len(g_node_coor)]
-Nw_idxs = np.arange(n_Nw_sw_cases)  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
-Nw_or_equiv_Hw_cases = ['Nw', 'Hw']  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
-beta_DB_cases = np.arange(rad(0), rad(359), rad(10000))  # wind (from) directions. Interval: [rad(0), rad(360)]
+# Nw_idxs = np.arange(n_Nw_sw_cases)  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
+Nw_idxs = [None]  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
+Nw_or_equiv_Hw_cases = [None]  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
+beta_DB_cases = np.arange(rad(0), rad(359), rad(10))  # wind (from) directions. Interval: [rad(0), rad(360)]
 
-assert len(beta_DB_cases) == 1 if Nw_idxs is not [None] else ''
-assert np.max(Nw_idxs) <= n_Nw_sw_cases, "Decrease the Nw_idxs! The static analysis"
+if Nw_idxs != [None]:
+    assert len(beta_DB_cases) == 1
+assert Nw_idxs == [None] or np.max(Nw_idxs) <= n_Nw_sw_cases, "Decrease the Nw_idxs! The static analysis"
 list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases,
                                       flutter_derivatives_type_cases, n_freq_cases, n_modes_cases, n_nodes_cases,
                                       f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases,
@@ -380,6 +383,8 @@ list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_
 parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal)
 # pr.disable()
 # pr.print_stats(sort='cumtime')
+
+raise Exception  # remove this (used for debugging and safety)
 
 ########################################################################################################################
 # Time domain buffeting analysis:
