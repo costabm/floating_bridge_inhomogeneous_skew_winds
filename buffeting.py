@@ -421,11 +421,13 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
                 f_hat_z = np.einsum('f,n->fn', f_array, z/U_bar)  # normalized frequency, w.r.t. z (height above ground). according to (Kaimal, 1972)
                 u_star = sigma_n[:,0] / 2.5 # shape (n,). friction velocity, according to (Solari and Picardo, 2001) https://doi.org/10.1016/S0266-8920(00)00010-2 (below Table 3), and (Midjiyawa et al, 2021) https://doi.org/10.1016/j.jweia.2021.104585
                 # Now the off-diagonal uw. See (LD Zhu, 2002), eq. 5.29b, 5-31b and 5-27. BUT the mean in eq. 5-31b is instead replaced by sqrt(f_hat_uu*f_hat_ww) to match e.g. (Katsuchi et al, 1999) https://doi.org/10.1061/(ASCE)0733-9445(1999)125:1(60) as suggested by 1 reviewer:
-                C_uw = np.einsum('fn,fn->fn', np.einsum('n,f->fn', -u_star**2, 1 / f_array), (14*f_hat_z)/(1+9.6*f_hat_z)**2.4)
+                C_uw = np.einsum('fn,fn->fn', np.einsum('n,f->fn', -u_star**2, 1 / f_array), (12*f_hat_z)/(1+9.6*f_hat_z)**(7/3))
                 f_hat_uw = np.sqrt(f_hat_aa[:,:,:,0] * f_hat_aa[:,:,:,2])
+                # Probably wrong version, as in (Hémon and Santi, 2007), because sign information is lost:
                 # S_uw = 1.0 * np.einsum('fmn,fmn->fmn', np.sqrt(np.einsum('fm,fn->fmn', C_uw, C_uw)), np.e ** (-f_hat_uw))
-                # print('TESTING NEGATIVE SIGN. DELETE BELOW')
-                S_uw = 1.0 * np.einsum('fmn,fmn->fmn', -np.sqrt(np.einsum('fm,fn->fmn',C_uw,C_uw)), np.e**(-f_hat_uw))
+                # Preferred version, as in (Katsuchi et al, 1999), because sign information is preserved, but equal Cuw is assumed for all nodes:
+                assert all([np.allclose(np.min(C_uw[f,:]), np.max(C_uw[f,:]), rtol=0.05) for f in range(len(f_array))])  # asserting C_uw is similar for all nodes, so we can use Katsuchi's formula.
+                S_uw = 1.0 * np.einsum('f,fmn->fmn', C_uw[:,0], np.e**(-f_hat_uw))
                 # print('TESTING NEGATIVE SIGN. DELETE ABOVE')
             if cospec_type == 4:  # This will additionally consider the uw off-diagonal, thus returning an array with an extra dimension. This time, following the suspected reviewer (Pascal Hemon) suggestion in his paper doi:10.1016/j.jweia.2006.04.003
                 # The following is the eq. (12) from (Hemon and Santi, 2007) doi:10.1016/j.jweia.2006.04.003
@@ -440,8 +442,11 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
                 w_array = f_array * 2*np.pi
                 Coh_uw_omegas = np.einsum('n,wn->wn', -1/kapa_uw, 1/np.sqrt(1+0.4*(np.einsum('w,n->wn', w_array/(2*np.pi), iLj[:,0,0]/U_bar))**2))
                 # Coh_uw = 2*np.pi * Coh_uw_omegas  # shape (f,n). Converting single-sided spectrum from rads to Hertz according to eq. (2.75) in Strommen.
-                psi = np.arctan(S_a[:,:,0]-S_a[:,:,2]-np.sqrt((S_a[:,:,0]-S_a[:,:,2])**2+4*Coh_uw_omegas**2*S_a[:,:,0]*S_a[:,:,2])/(2*Coh_uw_omegas*np.sqrt(S_a[:,:,0]*S_a[:,:,2])))
-                S_uw = 1/2 * np.einsum('f,fmn->fmn', np.tan(2*psi[:,0]), S_aa[:,:,:,2] - S_aa[:,:,:,0], optimize=True)  # (eq. 29 from Solari and Tubino, 2002). To make this valid for a bridge with varying z coordinates, implement the Suw of eq. 28 instead!
+                S_a_omegas = S_a / (2*np.pi)  #  Converting single-sided spectrum from rads to Hertz according to eq. (2.75) in Strommen.
+                S_aa_omegas = S_aa / (2*np.pi)  #  Converting single-sided spectrum from rads to Hertz according to eq. (2.75) in Strommen.
+                psi = np.arctan((S_a_omegas[:,:,0]-S_a_omegas[:,:,2]-np.sqrt((S_a_omegas[:,:,0]-S_a_omegas[:,:,2])**2+4*Coh_uw_omegas**2*S_a_omegas[:,:,0]*S_a_omegas[:,:,2]))/(2*Coh_uw_omegas*np.sqrt(S_a_omegas[:,:,0]*S_a_omegas[:,:,2])))
+                S_uw_omegas = 1/2 * np.einsum('f,fmn->fmn', np.tan(2*psi[:,0]), S_aa_omegas[:,:,:,2] - S_aa_omegas[:,:,:,0], optimize=True)  # psi[:,0] because all nodes are assumed equal to first node. (eq. 29 from Solari and Tubino, 2002). To make this valid for a bridge with varying z coordinates, implement the Suw of eq. 28 instead!
+                S_uw = 2*np.pi * S_uw_omegas  #  Converting single-sided spectrum from rads to Hertz according to eq. (2.75) in Strommen.
             zeros_fnm = np.zeros((len(f_array), n_g_nodes, n_g_nodes))
             S_aa = np.array([[S_aa[:,:,:,0],     zeros_fnm,         S_uw],
                              [    zeros_fnm, S_aa[:,:,:,1],    zeros_fnm],

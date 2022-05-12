@@ -319,7 +319,7 @@ except FileNotFoundError:
 #                                                AERODYNAMIC ANALYSES
 ########################################################################################################################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-cospec_type = 5  # Best choices: 2, or 5.... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Hémon and Santi, 2007). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013).
+cospec_type = 5  # Best choices: 2, or 5.... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Katsuchi et al, 1999). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013).
 Ii_simplified = True  # Turbulence intensities. Simplified -> same turbulence intensities everywhere for all directions.
 include_modal_coupling = True  # True: CQC. False: SRSS. Off-diag of modal M, C and K in the Freq. Dom. (modal coupling).
 include_SE_in_modal = False  # includes effects from Kse when calculating mode shapes (only relevant in Freq. Domain). True gives complex mode shapes!
@@ -443,37 +443,43 @@ parametric_buffeting_TD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplif
 
 
 # todo: to accelerate the code, calculate the polynomial coefficients of the constrained fits only once and save them in a separate file to be accessed for each mean wind direction.
-########################################################################################################################
+# #######################################################################################################################
 # Validating the wind field:
-########################################################################################################################
-# from wind_field.wind_field_3D_applied_validation import wind_field_3D_applied_validation_func
-# from simple_5km_bridge_geometry import arc_length, R
-# from buffeting import wind_field_3D_all_blocks_func, rad, deg
-#
-# beta_DB = rad(100)  # wind direction
-#
-# # Input (change the numbers only)
-# wind_block_T = 600  # (s). Desired duration of each wind block. To be increased due to overlaps.
-# wind_overlap_T = 8  # (s). Total overlapping duration between adjacent blocks.
-# transient_T = 2 * wind_block_T  # (s). Transient time due to initial conditions, to be later discarded in the response analysis.
-# ramp_T = 0  # (s). Ramp up time, inside the transient_T, where windspeeds are linearly increased.
-# wind_T = 6 * wind_block_T + transient_T  # (s). Total time-domain simulation duration, including transient time, after overlapping. Keep it in this format (multiple of each wind block time).
-# dt = 1  # s. Time step in the calculation
-#
-# # Wind speeds at each node, in Gw coordinates (XuYvZw).
-# windspeed = wind_field_3D_all_blocks_func(g_node_coor, beta_DB, dt, wind_block_T, wind_overlap_T, wind_T, ramp_T,
-#                                           cospec_type, Ii_simplified_bool, plots=False)
-#
-# # Validation
+# #######################################################################################################################
+from wind_field.wind_field_3D_applied_validation import wind_field_3D_applied_validation_func
+from simple_5km_bridge_geometry import arc_length, R
+from buffeting import wind_field_3D_all_blocks_func, rad, deg
+
+beta_DB = rad(100)  # wind direction
+
+# Input (change the numbers only)
+cospec_type = 2
+wind_block_T = 600  # (s). Desired duration of each wind block. To be increased due to overlaps.
+wind_overlap_T = 8  # (s). Total overlapping duration between adjacent blocks.
+transient_T = 0 * wind_block_T  # (s). Transient time due to initial conditions, to be later discarded in the response analysis.
+ramp_T = 0  # (s). Ramp up time, inside the transient_T, where windspeeds are linearly increased.
+wind_T = 18 * wind_block_T + transient_T  # (s). Total time-domain simulation duration, including transient time, after overlapping. Keep it in this format (multiple of each wind block time).
+dt = 0.25  # s. Time step in the calculation
+
+# Wind speeds at each node, in Gw coordinates (XuYvZw).
+Ii_simplified_bool = True
+windspeed = wind_field_3D_all_blocks_func(g_node_coor, beta_DB, dt, wind_block_T, wind_overlap_T, wind_T, ramp_T,
+                                          cospec_type, Ii_simplified_bool, plots=False)
+
+# Validation
+freq_array = np.arange(1 / wind_T, (1/dt) / 2, 1 / wind_T)
+f_min = np.min(freq_array)
+f_max = np.max(freq_array)
+n_freq = len(freq_array)
 # n_freq = 128
 # f_min = 0.002
 # f_max = 0.5
-# n_nodes_validated = 10  # total number of nodes to assess wind speeds: STD, mean, co-spectra, correlation
-# node_test_S_a = 0  # node tested for auto-spectrum
-# n_nodes_val_coh = 5  # num nodes tested for assemblage of 2D correlation decay plots
-#
-# wind_field_3D_applied_validation_func(g_node_coor, windspeed, dt, wind_block_T, beta_DB, arc_length, R, Ii_simplified_bool, f_min, f_max,
-#                                       n_freq,  n_nodes_validated, node_test_S_a, n_nodes_val_coh)
+n_nodes_validated = 10  # total number of nodes to assess wind speeds: STD, mean, co-spectra, correlation
+node_test_S_a = 0  # node tested for auto-spectrum
+n_nodes_val_coh = 5  # num nodes tested for assemblage of 2D correlation decay plots
+
+wind_field_3D_applied_validation_func(g_node_coor, windspeed, dt, wind_block_T, beta_DB, arc_length, R, Ii_simplified_bool, f_min, f_max,
+                                      n_freq,  n_nodes_validated, node_test_S_a, n_nodes_val_coh)
 
 print('all is done')
 

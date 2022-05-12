@@ -178,7 +178,7 @@ def wind_field_3D_applied_validation_func(g_node_coor, windspeed, dt, wind_block
     # =============================================================================
     # wind_block_T = min(600, wind_T)  # s. Duration of each segment, to build an average in the Welch method
     # nperseg = len(windspeed_u[node_test_S_a]) / round(wind_T / wind_block_T)
-    nperseg = int(len(windspeed_u[node_test_S_a]) / 10)
+    nperseg = int(len(windspeed_u[node_test_S_a]) / 20)
     u_1_freq, u_1_ps = signal.welch(windspeed_u[node_test_S_a], wind_freq, nperseg=nperseg)
     v_1_freq, v_1_ps = signal.welch(windspeed_v[node_test_S_a], wind_freq, nperseg=nperseg)
     w_1_freq, w_1_ps = signal.welch(windspeed_w[node_test_S_a], wind_freq, nperseg=nperseg)
@@ -195,6 +195,7 @@ def wind_field_3D_applied_validation_func(g_node_coor, windspeed, dt, wind_block
     plt.scatter(v_1_freq[:-1], v_1_ps[:-1] / ((Ii[:, 1][node_test_S_a] * U_bar[node_test_S_a]) ** 2) * v_1_freq[:-1], marker='>',edgecolors='none', color='orange', label='Measur. v', alpha=0.6, s=6)
     plt.scatter(w_1_freq[:-1], w_1_ps[:-1] / ((Ii[:, 2][node_test_S_a] * U_bar[node_test_S_a]) ** 2) * w_1_freq[:-1], marker='v',edgecolors='none', color='brown', label='generated w', alpha=0.6, s=6)
     plt.xscale('log')
+    # plt.xlim([0.001,2])
     plt.xlabel('Frequency [Hz]')
     plt.grid(which='both')
     plt.tight_layout()
@@ -352,6 +353,7 @@ def wind_field_3D_applied_validation_func(g_node_coor, windspeed, dt, wind_block
     # Plotting normalized co-spectrum validation by comparing eq.(3.40) with eq.(3.41) in Strømmen's book
     # =============================================================================
     nperseg = int(len(windspeed_u[node_test_S_a]) / 20)
+    n_freqs_plotted = 217  # manually input this
     # Measured values:
     freq_csd = signal.csd(windspeed_u[0], windspeed_u[0], wind_freq, window='hann', nperseg=nperseg)[0]
     csd_u = np.zeros((n_nodes_validated, n_nodes_validated, len(freq_csd)))
@@ -388,10 +390,11 @@ def wind_field_3D_applied_validation_func(g_node_coor, windspeed, dt, wind_block
     # color = cm.tab10(np.linspace(0,1,len(delta_y[0])))
     color = cm.plasma(np.linspace(0., 0.9, len(delta_y[0])))
     for i in range(n_nodes_validated):
-        plt.plot( [delta_y[0][i]] * len(freq_csd), freq_csd, cospec_norm_u[0][i], marker='o', color=color[i], linestyle='--', linewidth=0.5, alpha=0.7, markersize=2)
-        plt.plot( [delta_y[0][i]] * len(freq_csd), freq_csd, cospec_norm_u_target[0][i], color=color[i])
+        plt.plot( [delta_y[0][i]] * len(freq_csd[:n_freqs_plotted]), freq_csd[:n_freqs_plotted], cospec_norm_u[0][i][:n_freqs_plotted], marker='o', color=color[i], linestyle='--', linewidth=0.5, alpha=0.7, markersize=2)
+        plt.plot( [delta_y[0][i]] * len(freq_csd[:n_freqs_plotted]), freq_csd[:n_freqs_plotted], cospec_norm_u_target[0][i][:n_freqs_plotted], color=color[i])
     ax.set_ylabel('Frequency [Hz]')
-    ax.set_ylim3d(0, freq_csd[-1])
+    # ax.set_ylim3d(0, freq_csd[-1])
+    ax.set_ylim3d(0, 0.4)
     ax.set_xlabel('Spacing $\Delta_{Y_v}$ [m]')
     ax.set_xlim3d(delta_y[0][0], delta_y[0][-1])
     ax.set_zlim3d(0, 1)

@@ -8,6 +8,7 @@ def rad(deg):
 def deg(rad):
     return rad*180/np.pi
 
+n_samples = 100000  #  10000000
 
 # Mean wind-speed
 z = 14.5
@@ -26,15 +27,16 @@ sigma_v = Iv * U_bar
 sigma_w = Iw * U_bar
 
 # This is not the same as real wind time series. These are totally uncorrelated occurrences of wind speeds.
-V = np.random.normal(U_bar, sigma_u, 10000000)  # total along wind velocity
-v = np.random.normal(0, sigma_v, 10000000)  # total along wind velocity
-w = np.random.normal(0, sigma_w, 10000000)  # total along wind velocity
+V = np.random.normal(U_bar, sigma_u, n_samples)  # total along wind velocity
+v = np.random.normal(0, sigma_v,     n_samples)  # total along wind velocity
+w = np.random.normal(0, sigma_w,     n_samples)  # total along wind velocity
 
 # Total horizontal speed
 V_v = np.sqrt(V**2 + v**2)
 
 # Theta angle - angle of attack
 thetas = deg(np.arctan(w / V_v))
+
 
 thetas_between_plus_minus_10 = sum(-10<t<10 for t in thetas)
 thetas_between_plus_minus_3 = sum(-3<t<3 for t in thetas)
@@ -69,8 +71,11 @@ plt.grid()
 plt.title(r'Probability density function of $\~{\theta}$')
 plt.xlabel(r'$\~{\theta}$ [deg]')
 plt.tight_layout()
+plt.show()
 
-# Plotting
+
+
+# # Plotting
 # plt.figure(figsize=(6,5), dpi=300)
 # plt.hist(thetas, bins=400, density=True, label='Histogram', alpha=0.6, histtype='step')
 # plt.grid()
