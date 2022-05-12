@@ -313,9 +313,6 @@ plt.show()
 
 
 
-
-
-
 # df_1pt = pd.DataFrame()
 # df_1pt = df_1pt.append(pd.DataFrame({'point':i, 'beta':beta_tilde_deg[i], 'angle':theta_yz_tilde_deg[i]}))
 # df_1pt = df_1pt.append(pd.DataFrame({'point':i, 'beta':beta_tilde_deg[i], 'angle':   theta_tilde_deg[i]}))
