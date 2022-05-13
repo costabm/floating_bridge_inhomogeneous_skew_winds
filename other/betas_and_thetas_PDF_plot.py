@@ -1,5 +1,5 @@
 import numpy as np
-from buffeting import beta_and_theta_bar_func
+from buffeting import beta_and_theta_bar_func, beta_0_func
 from simple_5km_bridge_geometry import g_node_coor
 from transformations import T_LsGs_3g_func, T_GsGw_func
 import pandas as pd
@@ -12,9 +12,10 @@ def rad(deg):
 def deg(rad):
     return rad*180/np.pi
 
-n_samples = 100000  #  10000000
-n_nodes_plot = 5
-beta_0 = rad(130)
+n_samples = 1000000  #  10000000
+n_nodes_plot = 3
+beta_DB = rad(100-40)  #  rad(270+45+22.5)
+beta_0 = beta_0_func(beta_DB)
 theta_0 = rad(0)
 n_g_nodes = len(g_node_coor)
 
@@ -75,9 +76,17 @@ theta_tilde_deg = np.rad2deg(theta_tilde)
 theta_yz_tilde_deg = np.rad2deg(theta_yz_tilde)
 
 # Now, one node at the time
-pt_indxs_plot = [1,2,3]
+pt_indxs_plot = [0,1,2]
 
 
+
+
+df =           pd.DataFrame({'type': [r'$\tilde{\theta}_{yz}$']*n_samples})
+df = df.append(pd.DataFrame({'type': [r'$\tilde{\theta}$']     *n_samples}))
+df = pd.DataFrame()
+for i in pt_indxs_plot:
+    df = df.append(pd.DataFrame({'point':i, 'type': [r'$\tilde{\theta}_{yz}$'] * n_samples, f'beta': beta_tilde_deg[i], f'angle_P{i}': theta_yz_tilde_deg[i]}), ignore_index=True)
+    df = df.append(pd.DataFrame({'point':i, 'type': [r'$\tilde{\theta}$']      * n_samples, f'beta': beta_tilde_deg[i], f'angle_P{i}':    theta_tilde_deg[i]}), ignore_index=True)
 
 
 
@@ -179,13 +188,14 @@ def jointplots(x, ys, data, hue=None, hue2=None, width=6, ratio=5, space=0.2, ma
     else:
         n_y = 1
 
-    heights = [w_margin] + [w_joint] * n_y
+    heights = list(np.array([w_margin] + [w_joint] * n_y) * 0.69)
     widths = [w_joint, w_margin]
     nrows = len(heights)
     ncols = len(widths)
 
     sns.set(font_scale=1.8)
     sns.set_style("whitegrid")
+    sns.set_palette([sns.color_palette()[i] for i in [2,1,3,4,5,6,7]])
     fig = plt.figure(figsize=(sum(widths)+w_margin, sum(heights)-w_margin), constrained_layout=True, dpi=300)
 
     ### 3. gridspec preparation
@@ -202,19 +212,36 @@ def jointplots(x, ys, data, hue=None, hue2=None, width=6, ratio=5, space=0.2, ma
 
     ### 5. jointplots (scatterplot + kdeplot)
     for i, y in zip(axes_j, ys):
+        # Getting percentiles:
+        for j,a in enumerate(df[hue].unique()):  # iterating through each hue type (e.g. theta, and theta_yz)
+            data_1_point_1_angle_type = df[df[hue] == a][y].dropna()
+            p10 = np.percentile(data_1_point_1_angle_type, 10)
+            p90 = np.percentile(data_1_point_1_angle_type, 90)
+            axs[i].hlines(y=[p10,p90], xmin=xlims[0], xmax=xlims[1],  linestyles="--", linewidth=2, alpha=0.5, colors=sns.color_palette()[j])
+            # axs[i].text(x=xlims[0], y=p90*0.9, s='P90', c=sns.color_palette()[j])
+        axs[i].axvline(x=90, linestyle="-.", linewidth=2., alpha=0.5, color='black')
         if i == axes_j[0]:  # if first plot
             legend = True
         else:
             legend = False
-        # sns.kdeplot(x=x, y=y, data=data, hue=hue, alpha=0.5, ax=axs[i], zorder=3, legend=False)
-        sns.scatterplot(x=x, y=y, data=data, hue=hue, alpha=markeralpha, ax=axs[i], s=markersize, zorder=2, legend=legend)
+        sns.kdeplot(x=x, y=y, data=data, hue=hue, alpha=0.5, levels=np.linspace(0.1,0.9,9), ax=axs[i], zorder=3, legend=legend)
+        # sns.scatterplot(x=x, y=y, data=data, hue=hue, alpha=markeralpha, ax=axs[i], s=markersize, zorder=2, legend=legend)
+        sns.histplot(x=x, y=y, data=data, hue=hue, ax=axs[i], zorder=2, legend=legend, alpha=0.4)
         if i == axes_j[0]:  # if first plot (and it has legend)
             axs[i].legend_.set_title('')
+            axs[i].get_legend()._loc = 1
             plt.setp(axs[i].get_legend().get_texts(), fontsize='25')  # for legend title
+            # test.legend(loc=1)  # for legend title
+            for lh in axs[i].get_legend().legendHandles:
+                lh.set_alpha(0.5)
         axs[i].set_xlim(xlims)
         axs[i].set_ylim(ylims)
+        axs[i].set_xticks([-30,-15,0,15,30,45,60,75,90,105,120])   #([75, 90, 105, 120, 135, 150, 165])
+        axs[i].set_yticks([-45,-30,-15,0,15,30,45])
         axs[i].grid("on", color="lightgray", zorder=0)
         axs[i].tick_params(labelsize=25)
+
+
 
     ### 6. kdeplots at marginal axes
     axs[ncols - 1].axis("off")
@@ -233,7 +260,7 @@ def jointplots(x, ys, data, hue=None, hue2=None, width=6, ratio=5, space=0.2, ma
         axs[i].spines["right"].set_visible(False)
 
     # One horizontal marginal plot
-    color_top_marginal_plot = sns.color_palette()[5]  # 5: brown - ish
+    color_top_marginal_plot = sns.color_palette()[6]  # 5: brown - ish (or 6, if one color was already removed from the palette with sns.set_palette)
     sns.kdeplot(x=x, data=data, hue=hue2, fill=True, ax=axs[axes_mx], zorder=2, legend=False, palette=[color_top_marginal_plot]*len(data[hue2].unique()))  # color of the top horizontal marginal plot. Choose number from here https://seaborn.pydata.org/tutorial/color_palettes.html
     axs[axes_mx].set_xlim(xlims)
     axs[axes_mx].set_xlabel("")
@@ -274,32 +301,24 @@ def jointplots(x, ys, data, hue=None, hue2=None, width=6, ratio=5, space=0.2, ma
     font_label = {"color": "black", "fontsize":"large"}
     labelpad = 12
     for i, y in zip(axes_j, ylabels):
-        axs[i].set_ylabel(y, fontdict=font_label, labelpad=labelpad)
+        axs[i].set_ylabel(y, fontdict=font_label, labelpad=labelpad, color='darkgrey')
         if i == axes_j[-1]:
             axs[i].set_xlabel(xlabel, fontdict=font_label, labelpad=labelpad)
-    axs[0].set_ylabel("Density", fontdict=font_label, labelpad=labelpad)
-    axs[2*nrows-1].set_xlabel("Density", fontdict=font_label, labelpad=labelpad)
+    axs[0].set_ylabel("", fontdict=font_label, labelpad=labelpad)
+    axs[2*nrows-1].set_xlabel("", fontdict=font_label, labelpad=labelpad)
 
     fig.supylabel(supylabel)
     # plt.tight_layout()
 
     return fig, axs
 
-
-df =           pd.DataFrame({'type': [r'$\theta_{yz}$']*n_samples})
-df = df.append(pd.DataFrame({'type': [r'$\theta$'     ]*n_samples}))
-df = pd.DataFrame()
-for i in pt_indxs_plot:
-    df = df.append(pd.DataFrame({'point':i, 'type': [r'$\theta_{yz}$'] * n_samples, f'beta': beta_tilde_deg[i], f'angle_P{i}': theta_yz_tilde_deg[i]}), ignore_index=True)
-    df = df.append(pd.DataFrame({'point':i, 'type': [r'$\theta$']      * n_samples, f'beta': beta_tilde_deg[i], f'angle_P{i}':    theta_tilde_deg[i]}), ignore_index=True)
-
-jointplots(ys=["angle_P3", "angle_P2", "angle_P1"], x="beta", data=df, hue="type", hue2="point",
+jointplots(ys=["angle_P2", "angle_P1", "angle_P0"], x="beta", data=df, hue="type", hue2="point",
             width=8, ratio=5, space=0.03, markeralpha=0.2, markersize=3,
-            xlabel=r'$\beta$  [deg]',
-            ylabels=[r"Quarter-span - North", r"Mid-span", r"Quarter-span - South"],
-            supylabel=r'$\theta$  or  $\theta_{yz}$  [deg]',
-            xlims=[80,180], ylims=[-90,90], margin_norm=False)
-plt.savefig('plots/betas_and_thetas_PDFs.png')
+            xlabel=r'$\tilde{\beta}$  [deg]',
+            ylabels=[r"North end", r"Mid-span", r"South end"],
+            supylabel=r'$\tilde{\theta}$  or  $\tilde{\theta}_{yz}$  [deg]',
+            xlims=[-30,120], ylims=[-45,45], margin_norm=False)
+plt.savefig('plots/betas_and_thetas_PDFs_5.png')
 plt.show()
 
 

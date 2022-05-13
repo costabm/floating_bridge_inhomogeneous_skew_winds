@@ -102,7 +102,7 @@ def colormap_2var_cons_fit_zoomin(method='2D_fit_cons', idx_to_plot=[0,1,2,3,4,5
         plt.figure(figsize=(5, 4), dpi=300)
         ax = plt.axes()
         # plt.title('Fitting ' + title_str + ' (' + r'$R^2 = $' + "{0:.3f}".format(r_squared)+')')
-        plt.title(title_str + r'$(\beta,\theta)$ fit. 3D depiction.')
+        plt.title(title_str + r'$(\beta,\theta)$ fit')
         print(title_str+' R2 -> '+"{0:.3f}".format(r_squared))
         cmap = plt.get_cmap(matplotlib.cm.Spectral_r)
         absmax = max(max(abs(C_Ci_grid_flat_Ls[i])), max(abs(C_SOH_Ls[i])))
@@ -152,7 +152,7 @@ def plot_2D_at_beta_fixed(method='2D_fit_cons',idx_to_plot=[0,1,2,3,4,5], plot_o
         plt.figure(figsize=(5, 4), dpi=300)
         ax = plt.axes()
         ax.set_prop_cycle('color',plt.cm.plasma(np.linspace(0.05,0.95,len(beta_fixed_list))))  # choos a range within colormap. e.g. [0.05,0.95] within [0,1]
-        plt.title(title_str +r'$(\beta,\theta)$ fit. 2D depictions.')
+        plt.title(title_str +r'$(\beta,\theta)$ fit (section views)')
         empty_ax = [None]*len(beta_fixed_list)
         for b_i,beta_fixed in enumerate(beta_fixed_list):
             marker_str = ["^","v","s","p","h","8"]
@@ -338,35 +338,47 @@ def color_table_SOH_values(color_interval='same_as_zoomin_plot', color_in='font'
 color_table_SOH_values(color_in='cell')
 
 def colormap_2D_vs_Cosine():
-    beta_angle_step = 0.1  # in degrees.
-    theta_angle_step = 0.2  # in degrees.
+    beta_angle_step = 0.1 # in degrees.
+    theta_angle_step = 0.2 # in degrees.
     betas = np.arange(rad(0), rad(90), rad(beta_angle_step))
     thetas = np.arange(rad(-89.9), rad(89.9) + rad(theta_angle_step) * 0.012345, rad(theta_angle_step))
     xx, yy = np.meshgrid(betas, thetas)
     from buffeting import U_bar_func
     from simple_5km_bridge_geometry import g_node_coor
+    def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+        new_cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+            'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+            cmap(np.linspace(minval, maxval, n)))
+        return new_cmap
     U = U_bar_func(g_node_coor)[0]
     Uyz = U * np.sqrt(1 - np.sin(xx)**2 * np.cos(yy)**2)
     Ucosine = U * np.cos(xx)
-    zz_1 = Uyz - Ucosine
+    # zz_1 = Uyz - Ucosine
+    zz_1 = (Uyz - Ucosine)/Uyz * 100
     theta_yz = np.arcsin(np.sin(yy) / np.sqrt(1 - np.sin(xx)**2 * np.cos(yy)**2))
-    zz_2 = deg(theta_yz - yy) + 0.0001  # this is to force an extra tick at the colorbar at 90deg
+    zz_2 = deg(theta_yz - yy)  # this is to force an extra tick at the colorbar at 90deg
+    # zz_2 = (theta_yz - yy)/theta_yz * 100  # this is to force an extra tick at the colorbar at 90deg
     for i,zz in enumerate([zz_1, zz_2]):
         # Finding the coefficient of determination R_squared
-        plt.figure(figsize=(5, 4), dpi=300)
+        fig = plt.figure(figsize=(5, 4), dpi=300)
         ax = plt.axes()
-        titles = [r'$U_{yz}-U\/\cos(\beta)$ [m/s]', r'$\theta_{yz}-\theta$ [$\degree$]']
+        titles = [r'$(U_{yz} - U\/\cos(\beta))$ / $U_{yz}$ [%]', r'$\theta_{yz}-\theta$ [$\degree$]']
+        # titles = [r'$(U_{yz} - U\/\cos(\beta))$ / $U_{yz}$ [%]', r'$(\theta_{yz}-\theta)$ / $\theta_{yz}$ [%]']
         str_save = ['Uyz-U', 'thetayz-theta']
-        clims = [(0,U), (0,90+theta_angle_step)]
+        clims = [(0, 100), (-90, 90)]
+        # clims = [(0, 100), (0, 100)]
         plt.title(titles[i])
         cmap = plt.get_cmap(matplotlib.cm.Spectral_r)
-        absmax = np.max(np.abs(zz))
-        cmap_norm = matplotlib.colors.Normalize(vmin=-absmax, vmax=absmax)
+        if i == 0:
+        # if i in [0,1]:
+            cmap = truncate_colormap(cmap, minval=0.5)
+        cmap_norm = matplotlib.colors.Normalize(vmin=clims[i][0], vmax=clims[i][1])
         scalarMap = matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap)
-        plt.scatter(deg(xx.flatten()), deg(yy.flatten()), s = np.ones(len(zz.flatten()))*10, alpha=1,marker="o", c=scalarMap.to_rgba(zz.flatten()))
-        plt.colorbar(matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap), ax=ax, alpha=1)
-        # cbar.set_clim(-90, 150)
-        # plt.clim(vmin=clims[i][0], vmax=clims[i][1])
+        sct = ax.scatter(deg(xx.flatten()), deg(yy.flatten()), s = np.ones(len(zz.flatten()))*10, alpha=1,marker="o", c=scalarMap.to_rgba(zz.flatten()), vmin=clims[i][0], vmax=clims[i][1])
+        sct.set_clim(0, 15)
+        cbar = fig.colorbar(matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap), ax=ax, alpha=1)
+        if i == 1:
+            cbar.set_ticks([-90,-60,-30,0,30,60,90])
         ax.set_xlabel(r'$\beta\/[\degree]$')
         ax.set_ylabel(r'$\theta\/[\degree]$')
         ax.set_xlim(deg(min(betas)), deg(max(betas)))
@@ -375,7 +387,8 @@ def colormap_2D_vs_Cosine():
         ax.set_ylim(-90, 90)
         plt.tight_layout()
         plt.savefig(r'aerodynamic_coefficients/plots/'+str_save[i]+'.png')
-# colormap_2D_vs_Cosine()
+        plt.close()
+colormap_2D_vs_Cosine()
 
 #####################################################################################################################
 # Looking at the derivatives
