@@ -87,22 +87,79 @@ betas = np.arange(rad(-5), rad(95)+rad(beta_angle_step)*0.012345, rad(beta_angle
 thetas = np.arange(rad(-10), rad(10)+rad(theta_angle_step)*0.012345, rad(theta_angle_step))
 xx, yy = np.meshgrid(betas, thetas)
 
+# def colormap_2var_cons_fit_zoomin_OLD(method='2D_fit_cons', idx_to_plot=[0,1,2,3,4,5]):
+#     # Extrapolated coefficients
+#     C_Ci_grid_flat_Ls = aero_coef(xx.flatten(), yy.flatten(), method=method, coor_system='Ls')
+#     # Assessing the fitting at the exact SOH points, to estimate R_squared
+#     C_Ci_fit_at_SOH = aero_coef(betas_SOH, thetas_SOH, method=method, coor_system='Ls')
+#     for i in idx_to_plot:
+#         if method == '2D':
+#             title_str = [r'$C_{x}^{2D}$', r'$C_{y}^{2D}$', r'$C_{z}^{2D}$', r'$C_{rx}^{2D}$', r'$C_{ry}^{2D}$', r'$C_{rz}^{2D}$'][i]
+#         elif method == 'cos_rule':
+#             title_str = [r'$C_{x}^{Cosine\/rule}$', r'$C_{y}^{Cosine\/rule}$', r'$C_{z}^{Cosine\/rule}$', r'$C_{rx}^{Cosine\/rule}$', r'$C_{ry}^{Cosine\/rule}$', r'$C_{rz}^{Cosine\/rule}$'][i]
+#         elif method == '2D_fit_free':
+#             title_str = [r'$C_{x}^{Free}$', r'$C_{y}^{Free}$', r'$C_{z}^{Free}$', r'$C_{rx}^{Free}$', r'$C_{ry}^{Free}$', r'$C_{rz}^{Free}$'][i]
+#         elif method == '2D_fit_cons':
+#             title_str = [r'$C_{x}^{Constrained}$', r'$C_{y}^{Constrained}$', r'$C_{z}^{Constrained}$', r'$C_{rx}^{Constrained}$', r'$C_{ry}^{Constrained}$', r'$C_{rz}^{Constrained}$'][i]
+#         # Finding the coefficient of determination R_squared
+#         SSres = sum((C_SOH_Ls[i] - C_Ci_fit_at_SOH[i])**2)
+#         SStot = sum((C_SOH_Ls[i] - np.mean(C_SOH_Ls[i])*np.ones(C_SOH_Ls[i].shape))**2)
+#         r_squared = 1 - SSres / SStot
+#         # Plotting:
+#         plt.figure(figsize=(5, 4), dpi=400)
+#         ax = plt.axes()
+#         # plt.title('Fitting ' + title_str + ' (' + r'$R^2 = $' + "{0:.3f}".format(r_squared)+')')
+#         plt.title(title_str + r'$(\beta,\theta)$ fit')
+#         print(title_str+' R2 -> '+"{0:.3f}".format(r_squared))
+#         cmap = plt.get_cmap(matplotlib.cm.Spectral_r)
+#         absmax = max(max(abs(C_Ci_grid_flat_Ls[i])), max(abs(C_SOH_Ls[i])))
+#         cmap_norm = matplotlib.colors.Normalize(vmin=-absmax, vmax=absmax)
+#         scalarMap = matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap)
+#         plt.scatter(xx.flatten() * 180 / np.pi, yy.flatten() * 180 / np.pi, s = np.ones(len(C_Ci_grid_flat_Ls[i]))*10, alpha=1,marker="o", c=scalarMap.to_rgba(C_Ci_grid_flat_Ls[i]))
+#         plt.colorbar(matplotlib.cm.ScalarMappable(norm=cmap_norm, cmap=cmap), ax=ax, alpha=1)
+#         plt.clim(vmin=0, vmax=0)
+#         markersize = 60
+#         scatter = ax.scatter(betas_SOH * 180 / np.pi, thetas_SOH * 180 / np.pi, s=markersize, c=scalarMap.to_rgba(C_SOH_Ls[i]), label='Measurements', edgecolors='black')
+#         ax.set_xlabel(r'$\beta\/[\degree]$')
+#         ax.set_ylabel(r'$\theta\/[\degree]$')
+#         handles, labels = ax.get_legend_handles_labels()
+#         ax.set_xlim(deg(min(betas)), deg(max(betas)))
+#         plt.xticks(np.arange(0, 91, 15))
+#         plt.yticks(np.arange(-10, 11, 2))
+#         ax.set_ylim(deg(min(thetas)), deg(max(thetas)))
+#         legend = plt.legend([plt.scatter([],[], marker='o', s=markersize, edgecolors='black', facecolor=(0,0,0,0))], labels, loc=1)
+#         plt.tight_layout()
+#         plt.savefig(r'aerodynamic_coefficients/plots/3D_'+method+'_'+str(i)+'.png')
+#         plt.close()
+
 def colormap_2var_cons_fit_zoomin(method='2D_fit_cons', idx_to_plot=[0,1,2,3,4,5]):
     # Extrapolated coefficients
     C_Ci_grid_flat_Ls = aero_coef(xx.flatten(), yy.flatten(), method=method, coor_system='Ls')
     # Assessing the fitting at the exact SOH points, to estimate R_squared
     C_Ci_fit_at_SOH = aero_coef(betas_SOH, thetas_SOH, method=method, coor_system='Ls')
     for i in idx_to_plot:
-        title_str = [r'$C_{x}$', r'$C_{y}$', r'$C_{z}$', r'$C_{rx}$', r'$C_{ry}$', r'$C_{rz}$'][i]
+        if method == '2D':
+            title_str = [r'$C_{x}^{2D}$', r'$C_{y}^{2D}$', r'$C_{z}^{2D}$', r'$C_{rx}^{2D}$', r'$C_{ry}^{2D}$', r'$C_{rz}^{2D}$'][i]
+        elif method == 'cos_rule':
+            title_str = [r'$C_{x}^{Cosine\/rule}$', r'$C_{y}^{Cosine\/rule}$', r'$C_{z}^{Cosine\/rule}$', r'$C_{rx}^{Cosine\/rule}$', r'$C_{ry}^{Cosine\/rule}$', r'$C_{rz}^{Cosine\/rule}$'][i]
+        elif method == '2D_fit_free':
+            title_str = [r'$C_{x}^{Free}$', r'$C_{y}^{Free}$', r'$C_{z}^{Free}$', r'$C_{rx}^{Free}$', r'$C_{ry}^{Free}$', r'$C_{rz}^{Free}$'][i]
+        elif method == '2D_fit_cons':
+            title_str = [r'$C_{x}^{Constrained}$', r'$C_{y}^{Constrained}$', r'$C_{z}^{Constrained}$', r'$C_{rx}^{Constrained}$', r'$C_{ry}^{Constrained}$', r'$C_{rz}^{Constrained}$'][i]
          # Finding the coefficient of determination R_squared
         SSres = sum((C_SOH_Ls[i] - C_Ci_fit_at_SOH[i])**2)
         SStot = sum((C_SOH_Ls[i] - np.mean(C_SOH_Ls[i])*np.ones(C_SOH_Ls[i].shape))**2)
         r_squared = 1 - SSres / SStot
         # Plotting:
-        plt.figure(figsize=(5, 4), dpi=300)
+        plt.figure(figsize=(5, 4), dpi=400)
         ax = plt.axes()
         # plt.title('Fitting ' + title_str + ' (' + r'$R^2 = $' + "{0:.3f}".format(r_squared)+')')
+        # if method in ['2D', 'cos_rule']:
         plt.title(title_str + r'$(\beta,\theta)$ fit')
+        # elif method is '2D_fit_free':
+        #     plt.title(title_str + r'$(\beta,\theta)$ free fit. 3D depiction.')
+        # elif method is '2D_fit_cons':
+        #     plt.title(title_str + r'$(\beta,\theta)$ constrained fit. 3D depiction.')
         print(title_str+' R2 -> '+"{0:.3f}".format(r_squared))
         cmap = plt.get_cmap(matplotlib.cm.Spectral_r)
         absmax = max(max(abs(C_Ci_grid_flat_Ls[i])), max(abs(C_SOH_Ls[i])))
@@ -122,13 +179,85 @@ def colormap_2var_cons_fit_zoomin(method='2D_fit_cons', idx_to_plot=[0,1,2,3,4,5
         ax.set_ylim(deg(min(thetas)), deg(max(thetas)))
         legend = plt.legend([plt.scatter([],[], marker='o', s=markersize, edgecolors='black', facecolor=(0,0,0,0))], labels, loc=1)
         plt.tight_layout()
-        plt.savefig(r'aerodynamic_coefficients/plots/3D_'+method+'_'+str(i)+'.png')
+        plt.savefig(r'aerodynamic_coefficients/plots/3D_'+method+'_'+str(i)+'.jpg')
         plt.close()
 colormap_2var_cons_fit_zoomin(method='2D_fit_free', idx_to_plot=[0,1,2,3,4,5])
 colormap_2var_cons_fit_zoomin(method='2D_fit_cons', idx_to_plot=[0,1,2,3,4,5])
 # colormap_2var_cons_fit_zoomin(method='2D_fit_cons_2', idx_to_plot=[0,1,2,3,4,5])
 colormap_2var_cons_fit_zoomin(method='2D', idx_to_plot=[1,2,3])
 colormap_2var_cons_fit_zoomin(method='cos_rule', idx_to_plot=[1,2,3])
+
+# def plot_2D_at_beta_fixed_OLD(method='2D_fit_cons',idx_to_plot=[0,1,2,3,4,5], plot_other_bridges=False):
+#     if plot_other_bridges:
+#         import os
+#         import pandas as pd
+#         path_raw_data = os.path.join(os.getcwd(), r'other', 'Langenuen and other bridges - static coefficients.xlsx')
+#         str_bridges = ['Langenuen', 'Julsundet', 'Sotrabru']
+#         linestyles = ['dotted','dashed','dashdot']
+#         df_list = [pd.read_excel(io=path_raw_data, sheet_name='Langenuen_table_only'),
+#                    pd.read_excel(io=path_raw_data, sheet_name='Julsundet_table_only'),
+#                    pd.read_excel(io=path_raw_data, sheet_name='Sotrabru_table_only')]
+#     # ZOOM IN GRAPH
+#     # Tested Domain
+#     theta_angle_step = 0.1  # in degrees.
+#     thetas = np.arange(rad(-10), rad(10) + rad(theta_angle_step) * 0.012345, rad(theta_angle_step))
+#     beta_fixed_list = rad(np.array([0,10.1,19.9,30.1,41.2,50.9]))
+#     from matplotlib.rcsetup import cycler
+#     for i in idx_to_plot:
+#         if method == '2D':
+#             title_str = [r'$C_{x}^{2D}$', r'$C_{y}^{2D}$', r'$C_{z}^{2D}$', r'$C_{rx}^{2D}$', r'$C_{ry}^{2D}$', r'$C_{rz}^{2D}$'][i]
+#         elif method == 'cos_rule':
+#             title_str = [r'$C_{x}^{Cosine\/rule}$', r'$C_{y}^{Cosine\/rule}$', r'$C_{z}^{Cosine\/rule}$', r'$C_{rx}^{Cosine\/rule}$', r'$C_{ry}^{Cosine\/rule}$', r'$C_{rz}^{Cosine\/rule}$'][i]
+#         elif method == '2D_fit_free':
+#             title_str = [r'$C_{x}^{Free}$', r'$C_{y}^{Free}$', r'$C_{z}^{Free}$', r'$C_{rx}^{Free}$', r'$C_{ry}^{Free}$', r'$C_{rz}^{Free}$'][i]
+#         elif method == '2D_fit_cons':
+#             title_str = [r'$C_{x}^{Constrained}$', r'$C_{y}^{Constrained}$', r'$C_{z}^{Constrained}$', r'$C_{rx}^{Constrained}$', r'$C_{ry}^{Constrained}$', r'$C_{rz}^{Constrained}$'][i]
+#         # Plotting:
+#         plt.figure(figsize=(5, 4), dpi=300)
+#         ax = plt.axes()
+#         ax.set_prop_cycle('color',plt.cm.plasma(np.linspace(0.05,0.95,len(beta_fixed_list))))  # choos a range within colormap. e.g. [0.05,0.95] within [0,1]
+#         plt.title(title_str +r'$(\beta,\theta)$ fit (section views)')
+#         empty_ax = [None]*len(beta_fixed_list)
+#         for b_i,beta_fixed in enumerate(beta_fixed_list):
+#             marker_str = ["^","v","s","p","h","8"]
+#             markersize_plt = np.array([1.8,1.8,1.8,2.3,2.3,2.3])
+#             markersize_scatter = markersize_plt * 28
+#             C_Ci_grid_flat_Ls = aero_coef(np.ones(len(thetas)) * beta_fixed, thetas, method=method, coor_system='Ls')
+#             markevery = [0]
+#             # markevery = len(thetas)-1  # could be the same as [0,-1] ?
+#             plt.plot(deg(thetas), C_Ci_grid_flat_Ls[i], label=r'$\beta=$'+str(round(deg(beta_fixed),1))+'$\degree$', alpha=0.8, marker=marker_str[b_i],markevery=markevery, markersize=markersize_plt[b_i]*4, fillstyle='none')
+#             measured_label = 'Measurements' if b_i == 1 else ''
+#             empty_ax[b_i] = plt.scatter(deg(thetas_SOH[np.where(np.isclose(betas_SOH,beta_fixed,atol=rad(2)))]), C_SOH_Ls[i,np.where(np.isclose(betas_SOH,beta_fixed,atol=rad(2)))],alpha=0.8, s=markersize_scatter[b_i], label=measured_label,marker=marker_str[b_i], edgecolors='none')
+#         ax.set_xlabel(r'$\theta\/[\degree]$')
+#         ax.set_ylabel(title_str)
+#         if plot_other_bridges:
+#             for j in range(3):  # 3 other bridges
+#                 plt.plot(df_list[j]['angle(deg)'], df_list[j]['Cy'], label=str_bridges[j]+r' ($\beta=0\degree$)', linestyle=linestyles[j], c='grey', alpha=0.7,linewidth=1)
+#         handles,labels = ax.get_legend_handles_labels()
+#         # handles = [handles[1], handles[0]]
+#         # labels = [labels[1], labels[0]]
+#         if not plot_other_bridges:
+#             C_limits = [None,None,None,None,None,None]
+#             plt.ylim(C_limits[i])
+#         plt.xticks(np.arange(-10, 10+0.01, 2))
+#         plt.tight_layout()
+#         plt.savefig(r'aerodynamic_coefficients/plots/2D_beta_fixed_' + method + '_' + str(i) + '.png')
+#         plt.close()
+#         # Plottin legend
+#     from matplotlib.legend_handler import HandlerTuple
+#     if plot_other_bridges:
+#         plt.figure(figsize=(2.5, 3), dpi=300)
+#         plt.axis("off")
+#         plt.legend(handles[:-1]+[tuple(empty_ax)],labels, handler_map={tuple: HandlerTuple(ndivide=None)})
+#     else:
+#         plt.figure(figsize=(2, 3), dpi=300)
+#         plt.axis("off")
+#         plt.legend(handles[:6]+[tuple(empty_ax)],labels, handler_map={tuple: HandlerTuple(ndivide=None)})
+#     plt.tight_layout()
+#     plt.savefig(r'aerodynamic_coefficients/plots/legend_2D_beta_fixed_' + method + '_' + str(i) + '.png')
+#     plt.close()
+#
+#
 
 def plot_2D_at_beta_fixed(method='2D_fit_cons',idx_to_plot=[0,1,2,3,4,5], plot_other_bridges=False):
     if plot_other_bridges:
@@ -147,23 +276,33 @@ def plot_2D_at_beta_fixed(method='2D_fit_cons',idx_to_plot=[0,1,2,3,4,5], plot_o
     beta_fixed_list = rad(np.array([0,10.1,19.9,30.1,41.2,50.9]))
     from matplotlib.rcsetup import cycler
     for i in idx_to_plot:
-        title_str = [r'$C_{x}$', r'$C_{y}$', r'$C_{z}$', r'$C_{rx}$', r'$C_{ry}$', r'$C_{rz}$'][i]
+        if method == '2D':
+            title_str = [r'$C_{x}^{2D}$', r'$C_{y}^{2D}$', r'$C_{z}^{2D}$', r'$C_{rx}^{2D}$', r'$C_{ry}^{2D}$', r'$C_{rz}^{2D}$'][i]
+        elif method == 'cos_rule':
+            title_str = [r'$C_{x}^{Cosine\/rule}$', r'$C_{y}^{Cosine\/rule}$', r'$C_{z}^{Cosine\/rule}$', r'$C_{rx}^{Cosine\/rule}$', r'$C_{ry}^{Cosine\/rule}$', r'$C_{rz}^{Cosine\/rule}$'][i]
+        elif method == '2D_fit_free':
+            title_str = [r'$C_{x}^{Free}$', r'$C_{y}^{Free}$', r'$C_{z}^{Free}$', r'$C_{rx}^{Free}$', r'$C_{ry}^{Free}$', r'$C_{rz}^{Free}$'][i]
+        elif method == '2D_fit_cons':
+            title_str = [r'$C_{x}^{Constrained}$', r'$C_{y}^{Constrained}$', r'$C_{z}^{Constrained}$', r'$C_{rx}^{Constrained}$', r'$C_{ry}^{Constrained}$', r'$C_{rz}^{Constrained}$'][i]
         # Plotting:
         plt.figure(figsize=(5, 4), dpi=300)
         ax = plt.axes()
         ax.set_prop_cycle('color',plt.cm.plasma(np.linspace(0.05,0.95,len(beta_fixed_list))))  # choos a range within colormap. e.g. [0.05,0.95] within [0,1]
-        plt.title(title_str +r'$(\beta,\theta)$ fit (section views)')
+        plt.title(title_str +r'$(\beta,\theta)$ fit (sectional views)')
         empty_ax = [None]*len(beta_fixed_list)
         for b_i,beta_fixed in enumerate(beta_fixed_list):
             marker_str = ["^","v","s","p","h","8"]
             markersize_plt = np.array([1.8,1.8,1.8,2.3,2.3,2.3])
             markersize_scatter = markersize_plt * 28
             C_Ci_grid_flat_Ls = aero_coef(np.ones(len(thetas)) * beta_fixed, thetas, method=method, coor_system='Ls')
-            plt.plot(deg(thetas), C_Ci_grid_flat_Ls[i], label=r'$\beta=$'+str(round(deg(beta_fixed),1))+'$\degree$', alpha=0.8, marker=marker_str[b_i],markevery=len(thetas)-1, markersize=markersize_plt[b_i]*4, fillstyle='none')
+            markevery = [0]
+            # markevery = len(thetas)-1  # could be the same as [0,-1] ?
+            plt.plot(deg(thetas), C_Ci_grid_flat_Ls[i], label=r'$\beta=$'+str(round(deg(beta_fixed),1))+'$\degree$', alpha=0.8, marker=marker_str[b_i],markevery=markevery, markersize=markersize_plt[b_i]*4, fillstyle='none')
             measured_label = 'Measurements' if b_i == 1 else ''
             empty_ax[b_i] = plt.scatter(deg(thetas_SOH[np.where(np.isclose(betas_SOH,beta_fixed,atol=rad(2)))]), C_SOH_Ls[i,np.where(np.isclose(betas_SOH,beta_fixed,atol=rad(2)))],alpha=0.8, s=markersize_scatter[b_i], label=measured_label,marker=marker_str[b_i], edgecolors='none')
         ax.set_xlabel(r'$\theta\/[\degree]$')
-        ax.set_ylabel(title_str)
+        y_label_str = [r'$C_{x}$', r'$C_{y}$', r'$C_{z}$', r'$C_{rx}$', r'$C_{ry}$', r'$C_{rz}$'][i]
+        ax.set_ylabel(y_label_str)
         if plot_other_bridges:
             for j in range(3):  # 3 other bridges
                 plt.plot(df_list[j]['angle(deg)'], df_list[j]['Cy'], label=str_bridges[j]+r' ($\beta=0\degree$)', linestyle=linestyles[j], c='grey', alpha=0.7,linewidth=1)
@@ -175,20 +314,20 @@ def plot_2D_at_beta_fixed(method='2D_fit_cons',idx_to_plot=[0,1,2,3,4,5], plot_o
             plt.ylim(C_limits[i])
         plt.xticks(np.arange(-10, 10+0.01, 2))
         plt.tight_layout()
-        plt.savefig(r'aerodynamic_coefficients/plots/2D_beta_fixed_' + method + '_' + str(i) + '.png')
+        plt.savefig(r'aerodynamic_coefficients/plots/2D_beta_fixed_' + method + '_' + str(i) + '.jpg')
         plt.close()
         # Plottin legend
     from matplotlib.legend_handler import HandlerTuple
     if plot_other_bridges:
-        plt.figure(figsize=(2.5, 3), dpi=300)
+        plt.figure(figsize=(2.5, 3), dpi=1000)
         plt.axis("off")
         plt.legend(handles[:-1]+[tuple(empty_ax)],labels, handler_map={tuple: HandlerTuple(ndivide=None)})
     else:
-        plt.figure(figsize=(2, 3), dpi=300)
+        plt.figure(figsize=(2, 3), dpi=1000)
         plt.axis("off")
         plt.legend(handles[:6]+[tuple(empty_ax)],labels, handler_map={tuple: HandlerTuple(ndivide=None)})
     plt.tight_layout()
-    plt.savefig(r'aerodynamic_coefficients/plots/legend_2D_beta_fixed_' + method + '_' + str(i) + '.png')
+    plt.savefig(r'aerodynamic_coefficients/plots/legend_2D_beta_fixed_' + method + '_' + str(i) + '.jpg')
     plt.close()
 plot_2D_at_beta_fixed(method='2D_fit_free', idx_to_plot=[0,1,2,3,4,5], plot_other_bridges=False)
 plot_2D_at_beta_fixed(method='2D_fit_cons', idx_to_plot=[0,1,2,3,4,5], plot_other_bridges=False)
