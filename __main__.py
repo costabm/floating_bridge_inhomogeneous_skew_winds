@@ -24,7 +24,7 @@ from static_loads import static_dead_loads_func, R_loc_func
 
 start_time = time.time()
 run_modal_analysis = False
-run_DL = True  # include Dead Loads, for all analyses.
+run_DL = False  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
 run_new_Nw_sw = False
 
@@ -179,7 +179,7 @@ if run_modal_analysis_after_static_loads:
     alpha_temp = copy.deepcopy(alpha)
     if run_sw_for_modal:
         # Displacements
-        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, U_bar=U_bar_func(g_node_coor), beta_DB=rad(100), theta_0=rad(0), aero_coef_method='2D_fit_cons',
+        g_node_coor_sw, p_node_coor_sw, D_glob_sw = static_wind_func(g_node_coor, p_node_coor, alpha, U_bar=U_bar_func(g_node_coor), beta_DB=rad(280), theta_0=rad(0), aero_coef_method='2D_fit_cons',
                                                                      n_aero_coef=6, skew_approach='3D')
         D_loc_sw = mat_Ls_node_Gs_node_all_func(D_glob_sw, g_node_coor, p_node_coor, alpha)
         alpha_sw = copy.deepcopy(D_loc_sw[:g_node_num, 3])  # Global nodal torsional rotation.
@@ -228,7 +228,7 @@ if run_modal_analysis_after_static_loads:
             # Plotting:
             fig, ax = plt.subplots(2,1,sharex=True,sharey=False)
             fig.subplots_adjust(hspace=0.2)  # horizontal space between axes
-            fig.suptitle('Mode shape ' + str(m + 1) + '.  T = ' + str(round(periods[m], 1)) + ' s.  Scale = ' + str(deformation_ratio), fontsize=13)
+            fig.suptitle('Mode ' + str(m + 1) + '.  T = ' + str(round(periods[m], 1)) + ' s.  Scale = ' + str(deformation_ratio) + '. $K_G$ effects included', fontsize=13)
             ax[0].set_title('X-Y plane')
             ax[1].set_title('X-Z plane')
             ax[0].plot(g_shape_undeformed_X, g_shape_undeformed_Y, label='Undeformed', color='grey', alpha=0.3)
@@ -319,7 +319,7 @@ except FileNotFoundError:
 #                                                AERODYNAMIC ANALYSES
 ########################################################################################################################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-cospec_type = 5  # Best choices: 2, or 5.... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Katsuchi et al, 1999). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013).
+cospec_type_cases = [2,6]  # Best choices: 2, or 5.... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Katsuchi et al, 1999). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013). 6: same as 2 but now with cosine term that allows negative coh
 Ii_simplified = True  # Turbulence intensities. Simplified -> same turbulence intensities everywhere for all directions.
 include_modal_coupling = True  # True: CQC. False: SRSS. Off-diag of modal M, C and K in the Freq. Dom. (modal coupling).
 include_SE_in_modal = False  # includes effects from Kse when calculating mode shapes (only relevant in Freq. Domain). True gives complex mode shapes!
@@ -374,13 +374,14 @@ assert Nw_idxs == [None] or np.max(Nw_idxs) <= n_Nw_sw_cases, "Decrease the Nw_i
 list_of_cases = list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases,
                                       flutter_derivatives_type_cases, n_freq_cases, n_modes_cases, n_nodes_cases,
                                       f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases,
-                                      f_array_type_cases, make_M_C_freq_dep_cases, dtype_in_response_spectra_cases, Nw_idxs, Nw_or_equiv_Hw_cases)
+                                      f_array_type_cases, make_M_C_freq_dep_cases, dtype_in_response_spectra_cases, Nw_idxs,
+                                      Nw_or_equiv_Hw_cases, cospec_type_cases)
 
 # import cProfile
 # pr = cProfile.Profile()
 # pr.enable()
 # Writing results
-parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal)
+parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, include_modal_coupling, include_SE_in_modal)
 # pr.disable()
 # pr.print_stats(sort='cumtime')
 

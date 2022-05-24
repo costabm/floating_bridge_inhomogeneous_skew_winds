@@ -407,12 +407,16 @@ def S_aa_func(g_node_coor, beta_DB, f_array, Ii_simplified, cospec_type=2):
         S_aa_omega = np.einsum('wmna,wmna->wmna' , np.sqrt( np.einsum('wma,wna->wmna', S_a, S_a)) , R_aa )  # S_a is only (3,) because assumed no cross-correlation between components
         S_aa = 2*np.pi * S_aa_omega  # not intuitive! S(f)*delta_f = S(w)*delta_w. See eq. (2.75) from Strommen.
     # Alternative 2: Coherence and cross-spectrum (adapted Davenport for 3D). Developed in Hertz!
-    elif cospec_type in [2,3,4,5]:
+    elif cospec_type in [2,3,4,5,6]:
         f_hat_aa = np.einsum('f,mna->fmna', f_array , np.divide(np.sqrt( (Cij[:,0]*delta_xyz[:,:,0,None])**2 + (Cij[:,1]*delta_xyz[:,:,1,None])**2 + (Cij[:,2]*delta_xyz[:,:,2,None])**2 )  ,  U_bar_avg[:,:,None] ))  # This is actually in omega units, not f_array, according to eq.(10.35b)! So: rad/s
         f_hat = f_hat_aa  # this was confirmed to be correct with a separate 4 loop "f_hat_aa_confirm" and one Cij at the time
-        R_aa = np.e**(-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)
+        if cospec_type in [2]:
+            R_aa = np.e**(-f_hat)  # phase spectrum is not included because usually there is no info. See book eq.(10.34)
+        if cospec_type in [6]:
+            R_aa = np.e ** (-f_hat) * np.cos( np.einsum('f,mn->fmn',2*np.pi*f_array, delta_xyz[:,:,0] / U_bar_avg))[:,:,:,None]
         S_aa = np.einsum('fmna,fmna->fmna' , np.sqrt( np.einsum('fma,fna->fmna', S_a, S_a)) , R_aa )  # S_a is only (3,) because assumed no cross-correlation between components
-        if cospec_type in [3,4,5]:
+
+        if cospec_type in [3,4,5]:  # uw off-diagonal
             if cospec_type == 3:  # This will additionally consider the uw off-diagonal, thus returning an array with an extra dimension
                 # According to (Kaimal et al, 1972)
                 z = g_node_coor[:, 2]  # m. Meters above sea level
@@ -1488,7 +1492,7 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
         # ----------------------------------------------------------------------------------------------------------------------
 
         for w in range(n_freq):
-            if cospec_type in [1,2]:
+            if cospec_type in [1,2,6]:
                 Sb_FF[w] = np.einsum('muc,mnc,nvc-> mnuv', np.conjugate(Pb), S_aa_radians[w], Pb, optimize=True)
             elif cospec_type in [3,4,5]:
                 Sb_FF[w] = np.einsum('mub,mnbc,nvc-> mnuv', np.conjugate(Pb), S_aa_radians[w], Pb, optimize=True)
@@ -1725,24 +1729,24 @@ def buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, ske
 
 def list_of_cases_FD_func(n_aero_coef_cases, include_SE_cases, aero_coef_method_cases, beta_DB_cases, flutter_derivatives_type_cases, n_freq_cases, n_modes_cases,
                           n_nodes_cases, f_min_cases, f_max_cases, include_sw_cases, include_KG_cases, skew_approach_cases, f_array_type_cases, make_M_C_freq_dep_cases,
-                          dtype_in_response_spectra_cases, Nw_idxs, Nw_or_equiv_Hw_cases):
+                          dtype_in_response_spectra_cases, Nw_idxs, Nw_or_equiv_Hw_cases, cospec_type_cases):
     # List of cases (parameter combinations) to be run:
-    list_of_cases = [(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,z) for a in aero_coef_method_cases for b in n_aero_coef_cases for c in include_SE_cases
+    list_of_cases = [(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,z) for a in aero_coef_method_cases for b in n_aero_coef_cases for c in include_SE_cases
                      for d in flutter_derivatives_type_cases for e in n_modes_cases for f in n_freq_cases
                      for g in n_nodes_cases for h in f_min_cases for i in f_max_cases for j in include_sw_cases for k in include_KG_cases for l in skew_approach_cases
-                     for m in f_array_type_cases for n in make_M_C_freq_dep_cases for o in dtype_in_response_spectra_cases for p in Nw_idxs for q in Nw_or_equiv_Hw_cases for z in beta_DB_cases] # Note: new parameters should be added before beta_DB
+                     for m in f_array_type_cases for n in make_M_C_freq_dep_cases for o in dtype_in_response_spectra_cases for p in Nw_idxs for q in Nw_or_equiv_Hw_cases for r in cospec_type_cases for z in beta_DB_cases] # Note: new parameters should be added before beta_DB
     list_of_cases = [list(case) for case in list_of_cases
                      if not (('3D' in case[3] and '2D' in case[11]) or ('2D' in case[3] and '3D' in case[11]) or (case[2]==False and case[3] in ['3D_Scanlan', '3D_Scanlan_confirm', '3D_Zhu', '3D_Zhu_bad_P5', '2D_in_plane']))]
     # if skew_approach is '3D' only '3D' flutter_derivatives accepted. If SE=False, only one dummy FD case is accepted: '3D_full' or '2D_full'
     return list_of_cases
 
-def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, cospec_type=2, include_modal_coupling=True, include_SE_in_modal=False):
+def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplified, R_loc, D_loc, include_modal_coupling=True, include_SE_in_modal=False):
     n_g_nodes = len(g_node_coor)
     # Empty Dataframe to store results
     results_df             = pd.DataFrame(list_of_cases)
     results_df_all_g_nodes = pd.DataFrame(list_of_cases)
     results_df.columns = ['Method', 'n_aero_coef', 'SE', 'FD_type', 'n_modes', 'n_freq', 'g_node_num', 'f_min', 'f_max', 'SWind', 'KG', 'skew_approach', 'f_array_type', 'make_M_C_freq_dep',
-                          'dtype_in_response_spectra', 'Nw_idx', 'Nw_or_equiv_Hw', 'beta_DB']
+                          'dtype_in_response_spectra', 'Nw_idx', 'Nw_or_equiv_Hw', 'cospec_type', 'beta_DB']
     results_df_all_g_nodes.columns = copy.deepcopy(results_df.columns)
     # New Dataframe that instead stores the std of all nodes
     for i in range(0, 6):
@@ -1752,7 +1756,7 @@ def parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_sim
 
     case_idx = -1  # index of the case
     for aero_coef_method, n_aero_coef, include_SE, flutter_derivatives_type, n_modes, n_freq, g_node_num, f_min, f_max, include_sw, include_KG, skew_approach, f_array_type, make_M_C_freq_dep, \
-        dtype_in_response_spectra, Nw_idx, Nw_or_equiv_Hw, beta_DB in list_of_cases:
+        dtype_in_response_spectra, Nw_idx, Nw_or_equiv_Hw, cospec_type, beta_DB in list_of_cases:
         case_idx += 1  # starts at 0.
         buffeting_results = buffeting_FD_func(include_sw, include_KG, aero_coef_method, n_aero_coef, skew_approach, include_SE, flutter_derivatives_type, n_modes, f_min, f_max, n_freq, g_node_coor,
                                               p_node_coor, Ii_simplified, beta_DB, R_loc, D_loc, cospec_type, include_modal_coupling, include_SE_in_modal, f_array_type, make_M_C_freq_dep,
