@@ -307,3 +307,4 @@ def plot_added_mass_and_damping_func():
     plt.tight_layout()
     plt.savefig(os.path.join(project_path, 'added_mass_and_damping_legend.jpg'))
     plt.show()
+
