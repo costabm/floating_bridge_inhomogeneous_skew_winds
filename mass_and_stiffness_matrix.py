@@ -1,6 +1,6 @@
 """
-Generates the mass (kg), stiffness and geometric stiffness (N/m or N/rad) matrices
-of a Bjornafjorden-like floating bridge.
+Generates the mass (kg), stiffness and geometric stiffness (N/m or N/rad) matrices  of a Bjornafjord-like
+floating bridge.
 
 Notation:
 b - beam (usually associated with a 12x12 matrix)
@@ -20,7 +20,7 @@ from frequency_dependencies.read_Aqwa_file import pontoon_area_func, pontoon_Ixx
 
 
 ########################################################################################################################
-# Global variables
+# Global variables: Mostly obtained from "Appendix B - SBJ-30-C3-NOR-90-RE-102 Global analyses rev A.pdf"
 ########################################################################################################################
 E = 210E9  # (Pa) (Young Modulus)
 A = 1.43  # (m2) (CS Area)
@@ -29,7 +29,7 @@ Iz = 114.83  # (m4) (CS Strong Axis Inertia)
 J = 6.88  # (m4) (CS Torsional Inertia)
 poissonratio = 0.3  # (for steel)
 zbridge = 14.5  # (m) (deck height above water, measured at the Shear Centre!))
-linmass = 175.1 * 1000  # (N/m) (linear mass)   # todo: confirm these values in the new AMC report!!
+linmass = 175.1 * 1000  # (N/m) (linear mass) (== 17850 kg/m)  # Obtained from Phase 3 document SBJ-30-C3-NOR-90-RE-102 Version: A, Table 2-2. Slightly different from Phase 5 Appendix F – Global Analyses - Modelling and assumptions, Table 4-1
 c_linmass = 7200 * 9.81  # (N/m) (column linear mass)
 c_A = 0.872  # (m2) (Column area)
 c_Iy = 5.53  # (m4) (Column Inertia y)
