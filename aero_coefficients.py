@@ -78,7 +78,7 @@ def aero_coef(betas_extrap, thetas_extrap, method, coor_system, constr_fit_degre
         import os
         project_path = os.path.dirname(os.path.abspath(__file__))
     except:  # works when running directly in console
-        project_path = sys.path[-2]  # Path of the project directory. To be used in the Python Console! When a console is opened in Pycharm, the current project path should be automatically added to sys.path.
+        project_path = sys.path[1]  # Path of the project directory. To be used in the Python Console! When a console is opened in Pycharm, the current project path should be automatically added to sys.path.
 
 
     # Importing input file

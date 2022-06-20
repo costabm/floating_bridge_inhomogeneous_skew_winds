@@ -155,7 +155,7 @@ if run_DL:
 ########################################################################################################################
 # Aerodynamic coefficients grid
 ########################################################################################################################
-project_path = sys.path[-2]  # To be used in Python Console! When a console is opened, the current project path should be automatically added to sys.path.
+project_path = sys.path[1]  # To be used in Python Console! When a console is opened, the current project path should be automatically added to sys.path.
 C_Ci_grid_path = project_path + r'\\aerodynamic_coefficients\\C_Ci_grid.npy'
 # Deleting aerodynamic coefficient grid input file, for a new one to be created.
 if not os.path.exists(C_Ci_grid_path):

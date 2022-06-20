@@ -24,7 +24,7 @@ import sys
 try:  # works only when "Run"
     project_path = os.path.dirname(os.path.abspath(__file__))
 except:  # works when running directly in console
-    project_path = sys.path[-2]  # Path of the project directory. To be used in the Python Console! When a console is opened in Pycharm, the current project path should be automatically added to sys.path.
+    project_path = os.path.join(sys.path[1], 'frequency_dependencies')  # Path of the project directory. To be used in the Python Console! When a console is opened in Pycharm, the current project path should be automatically added to sys.path.
 f = open(project_path + r'\Aqwa_Analysis_(AMC).LIS', 'r')
 f = f.readlines()
 
@@ -188,33 +188,9 @@ def added_mass_func(w_array, plot = True):
         plt.plot(2 * np.pi / w_array_Aqwa, add_mass[:, 3, 3], label='C44')
         plt.plot(2 * np.pi / w_array_Aqwa, add_mass[:, 4, 4], label='C55')
         plt.plot(2 * np.pi / w_array_Aqwa, add_mass[:, 5, 5], label='C66')
-        # plt.scatter(2 * np.pi / w_array, add_mass_interp[:, 0, 0], label='C11 interpolation', alpha = 0.4, s=10)
-        # plt.scatter(2 * np.pi / w_array, add_mass_interp[:, 1, 1], label='C22 interpolation', alpha = 0.4, s=10)
-        # plt.scatter(2 * np.pi / w_array, add_mass_interp[:, 2, 2], label='C33 interpolation', alpha = 0.4, s=10)
-        # plt.scatter(2 * np.pi / w_array, add_mass_interp[:, 3, 3], label='C44 interpolation', alpha = 0.4, s=10)
-        # plt.scatter(2 * np.pi / w_array, add_mass_interp[:, 4, 4], label='C55 interpolation', alpha = 0.4, s=10)
-        # plt.scatter(2 * np.pi / w_array, add_mass_interp[:, 5, 5], label='C66 interpolation', alpha = 0.4, s=10)
         plt.legend()
         plt.xlabel('T [s]')
         plt.yscale('log')
-        plt.show()
-
-        from cycler import cycler
-        default_cycler = (cycler(color=['orange', 'g', 'b','orange','g','b']) +
-                          cycler(linestyle=['-','-','-','--','--','--']) + #,
-                          cycler(linewidth=[1.5,2.0,2.5,1.5,2.0,2.5]))
-        plt.rc('axes', prop_cycle=default_cycler)
-        plt.figure()
-        plt.plot(w_array_Aqwa / (2 * np.pi), add_mass[:, 0, 0], label='x') # linewidth=1.5)
-        plt.plot(w_array_Aqwa / (2 * np.pi), add_mass[:, 1, 1], label='y') # linewidth=2.0)
-        plt.plot(w_array_Aqwa / (2 * np.pi), add_mass[:, 2, 2], label='z') # linewidth=2.5)
-        plt.plot(w_array_Aqwa / (2 * np.pi), add_mass[:, 3, 3], label='rx') #  linewidth=1.5, linestyle='--')
-        plt.plot(w_array_Aqwa / (2 * np.pi), add_mass[:, 4, 4], label='ry') #  linewidth=2.0, linestyle='--')
-        plt.plot(w_array_Aqwa / (2 * np.pi), add_mass[:, 5, 5], label='rz') #  linewidth=2.5, linestyle='--')
-        plt.xlabel('Frequency [Hz]')
-        plt.ylabel('Added Mass [kg]')
-        plt.yscale('log')
-        plt.legend()
         plt.show()
     return add_mass_interp
 
@@ -255,3 +231,79 @@ def added_damping_func(w_array, plot = True):
         plt.show()
     return add_damp_interp
 
+def plot_added_mass_and_damping_func():
+    # Obtain original full tables of added mass and damping
+    w_array_Aqwa, add_mass = added_mass_full_table_func()
+    _w_array_Aqwa, add_damp = added_damping_full_table_func()
+    assert all(w_array_Aqwa == _w_array_Aqwa)
+    f_array_Aqwa = w_array_Aqwa / (2 * np.pi)
+    # PLOTTING
+    from cycler import cycler
+    default_cycler = (cycler(color=['orange','brown','cornflowerblue','orange','brown', 'cornflowerblue'])) #
+                      # + cycler(linestyle=['-','-','-','--','--','--']) +
+                      # cycler(linewidth=[2.5,2.5,2.5,2.5,2.5,2.5])) # cycler(linewidth=[1.5,2.0,2.5,1.5,2.0,2.5]))
+    plt.rc('axes', prop_cycle=default_cycler)
+    # Added mass
+    fig,axs = plt.subplots(2,3, dpi=400, figsize=(7,5), sharex=True)
+    axs[0,0].plot(f_array_Aqwa, add_mass[:, 0, 0], linewidth=2.5, linestyle='-', label='x') # linewidth=1.5)
+    axs[0,0].plot(f_array_Aqwa, add_mass[:, 1, 1], linewidth=2.5, linestyle='-', label='y') # linewidth=2.0)
+    axs[0,0].plot(f_array_Aqwa, add_mass[:, 2, 2], linewidth=2.5, linestyle='-', label='z') # linewidth=2.5)
+    axs[0,1].plot(f_array_Aqwa, add_mass[:, 3, 3], linewidth=2.5, linestyle='--', label='rx') #  linewidth=1.5, linestyle='--')
+    axs[0,1].plot(f_array_Aqwa, add_mass[:, 4, 4], linewidth=2.5, linestyle='--', label='ry') #  linewidth=2.0, linestyle='--')
+    axs[0,1].plot(f_array_Aqwa, add_mass[:, 5, 5], linewidth=2.5, linestyle='--', label='rz') #  linewidth=2.5, linestyle='--')
+    axs[1,0].set_xlabel('Frequency [Hz]')
+    axs[1,1].set_xlabel('Frequency [Hz]')
+    axs[1,2].set_xlabel('Frequency [Hz]')
+    axs[0,0].set_ylabel('Added mass [kg]')
+    axs[1,0].set_ylabel('Added damping [kg/s]')
+    # Added damping
+    axs[1,0].plot(f_array_Aqwa, add_damp[:, 0, 0], linewidth=2.5, linestyle='-', label='x')  # linewidth=1.5)
+    axs[1,0].plot(f_array_Aqwa, add_damp[:, 1, 1], linewidth=2.5, linestyle='-', label='y')  # linewidth=2.0)
+    axs[1,0].plot(f_array_Aqwa, add_damp[:, 2, 2], linewidth=2.5, linestyle='-', label='z')  # linewidth=2.5)
+    axs[1,1].plot(f_array_Aqwa, add_damp[:, 3, 3], linewidth=2.5, linestyle='--', label='rx')  # linewidth=1.5, linestyle='--')
+    axs[1,1].plot(f_array_Aqwa, add_damp[:, 4, 4], linewidth=2.5, linestyle='--', label='ry')  # linewidth=2.0, linestyle='--')
+    axs[1,1].plot(f_array_Aqwa, add_damp[:, 5, 5], linewidth=2.5, linestyle='--', label='rz')  # linewidth=2.5, linestyle='--')
+
+    # Finding the off diagonals that are more important to plot, and plotting them
+    label_list = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+    def check_symmetric(a, rtol=1e-05, atol=1e-08):
+        return np.allclose(a, a.T, rtol=rtol, atol=atol)
+    assert(all([check_symmetric(add_mass[i]) for i in range(len(add_mass))]))  # check if all matrices are symmetric
+    assert (all([check_symmetric(add_damp[i]) for i in range(len(add_damp))]))  # check if all matrices are symmetric
+    n_off_diags_to_plot = 2  # e.g. the 3 largest off-diagonal entries of the added mass will be plotted
+    off_diag_add_mass_max = {}
+    off_diag_add_damp_max = {}
+    for i in range(6):
+        for j in range(6):
+            if j > i:
+                off_diag_add_mass_max[str(i)+str(j)] = np.max(np.abs(add_mass[:, i, j]))
+                off_diag_add_damp_max[str(i) + str(j)] = np.max(np.abs(add_damp[:, i, j]))
+    off_diag_add_mass_max_sort = sorted(off_diag_add_mass_max.items(), key=lambda x: x[1], reverse=True)  # sorting the max off-diag added masses, to know which are more important
+    off_diag_add_damp_max_sort = sorted(off_diag_add_damp_max.items(), key=lambda x: x[1], reverse=True)
+    off_diag_add_mass_idxs_to_plot = [x[0] for x in off_diag_add_mass_max_sort[:n_off_diags_to_plot]]
+    off_diag_add_damp_idxs_to_plot = [x[0] for x in off_diag_add_damp_max_sort[:n_off_diags_to_plot]]
+    assert off_diag_add_mass_idxs_to_plot == off_diag_add_damp_idxs_to_plot, 'Improve legend since different off-diagonals of the added mass and damping are being plotted. Alternatively, reduce n_off_diag_to_plot in hope of getting same off-diags for both cases'
+    off_diag_color_list =['black', 'lightgrey', 'gold']
+    plt.rc('axes', prop_cycle=default_cycler)
+    for c, (i,j) in enumerate(off_diag_add_mass_idxs_to_plot):
+        i,j = int(i),int(j)
+        axs[0, 2].plot(f_array_Aqwa, add_mass[:, i, j], c=off_diag_color_list[c], linewidth=2., linestyle='dashdot', label=label_list[i]+'-'+label_list[j])
+    for c, (i,j) in enumerate(off_diag_add_damp_idxs_to_plot):
+        i,j = int(i),int(j)
+        axs[1, 2].plot(f_array_Aqwa, add_damp[:, i, j], c=off_diag_color_list[c],  linewidth=2., linestyle='dashdot', label=label_list[i]+'-'+label_list[j])
+
+    h1, l1 = axs[1,0].get_legend_handles_labels()
+    h2, l2 = axs[1,1].get_legend_handles_labels()
+    h3, l3 = axs[1,2].get_legend_handles_labels()
+    for ax in axs.flat:
+        ax.grid()
+    plt.tight_layout()
+    plt.savefig(os.path.join(project_path, 'added_mass_and_damping.jpg'))
+    plt.show()
+    # Legend
+    plt.figure(dpi=400, figsize=(5+n_off_diags_to_plot,1))
+    plt.legend(h1+h2+h3, l1+l2+l3, ncol=6+n_off_diags_to_plot)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(os.path.join(project_path, 'added_mass_and_damping_legend.jpg'))
+    plt.show()
