@@ -45,7 +45,6 @@ SDL = (4.89+0.6+1.33)*1000 * g  # (N/m) (asphalt + railings + transv stiffeners.
 G = E / (2 * (1 + poissonratio))  # (Pa) (Shear Modulus)
 ########################################################################################################################
 
-
 # # todo: TESTINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 # E = 210E9 / 10 # (Pa) (Young Modulus)
 # A = 1.43 / 1  # (m2) (CS Area)
@@ -69,13 +68,6 @@ G = E / (2 * (1 + poissonratio))  # (Pa) (Shear Modulus)
 # # Dependent variables:
 # G = E / (2 * (1 + poissonratio))  # (Pa) (Shear Modulus)
 # # todo: TESTINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
-
-
-
-
-
-
-
 
 ########################################################################################################################
 # MASS MATRIX
