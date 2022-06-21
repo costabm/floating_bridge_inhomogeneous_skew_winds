@@ -251,11 +251,17 @@ def plot_added_mass_and_damping_func():
     axs[0,1].plot(f_array_Aqwa, add_mass[:, 3, 3], linewidth=2.5, linestyle='--', label='rx') #  linewidth=1.5, linestyle='--')
     axs[0,1].plot(f_array_Aqwa, add_mass[:, 4, 4], linewidth=2.5, linestyle='--', label='ry') #  linewidth=2.0, linestyle='--')
     axs[0,1].plot(f_array_Aqwa, add_mass[:, 5, 5], linewidth=2.5, linestyle='--', label='rz') #  linewidth=2.5, linestyle='--')
-    axs[1,0].set_xlabel('Frequency [Hz]')
-    axs[1,1].set_xlabel('Frequency [Hz]')
-    axs[1,2].set_xlabel('Frequency [Hz]')
-    axs[0,0].set_ylabel('Added mass [kg]')
-    axs[1,0].set_ylabel('Added damping [kg/s]')
+    axs[1,0].set_xlabel(r'Frequency [Hz]')
+    axs[1,1].set_xlabel(r'Frequency [Hz]')
+    axs[1,2].set_xlabel(r'Frequency [Hz]')
+    axs[0,0].set_ylabel(r'Added mass [$kg$]')  # Mass * acc = Newton <=> Mass = N / (m/s**2) = kg m/s**2 / (m/s**2) = kg
+    axs[1,0].set_ylabel(r'Potential damping [$kg/s$]')  # Damp * vel = N <=> Damp = N / (m/s) = kg m/s**2 / (m/s) = kg/s
+    axs[0,1].set_ylabel(r'Added mass [$kg\/m^2$]')  # Mass * acc = N*m <=> Mass = Nm / (rad/s**2) = kg m**2/s**2 / (rad/s**2) = kg m**2
+    axs[1,1].set_ylabel(r'Potential damping [$kg\/m^2/s$]')  # Damp * vel = N*m <=> Damp = Nm / (rad/s) = kg m**2/s**2 / (rad/s) = kg m**2 /s
+    # And now the off-diagonals between a translation and a rotation. The units can be tricky. Let's focus on the upper/right matrix triangle of off-diagonals and forget about the lower/left triangle. The process is different for both triangles, but the conclusions would be the same. Here, the results are in N, but these entries are multiplied by rotations. In the lower triangle, C51, the results are in Nm but these entries are multiplied by translations.
+    axs[0,2].set_ylabel(r'Added mass [$kg\/m$]')           # For entry, e.g., M15: Mass * acc = N <=> Mass = N / (rad/s**2) = kg m/s**2 / (rad/s**2) = kg m. ALTERNATIVE, e.g. for M51: Mass * acc = Nm <=> Mass = Nm / (m/s**2) = kg m**2/s**2 / (m/s**2) = kg m. Note: When there is no current, added     Mass matrix is symmetric in values AND in units ( https://www.orcina.com/webhelp/OrcaFlex/Content/html/Vesseltheory,Stiffness,addedmassanddamping.htm#VesselTypeDampingLoad )
+    axs[1,2].set_ylabel(r'Potential damping [$kg\/m/s$]')  # For entry, e.g., C15: Damp * acc = N <=> Damp = N / (rad/s)    = kg m/s**2 / (rad/s)  = kg m/s. ALTERNATIVE, e.g. for C51: Damp * acc = Nm <=> Damp = Nm / (m/s)    = kg m**2/s**2 / (m/s) =  kg m/s. Note: When there is no current, potential Damp matrix is symmetric in values AND in units ( https://www.orcina.com/webhelp/OrcaFlex/Content/html/Vesseltheory,Stiffness,addedmassanddamping.htm#VesselTypeDampingLoad )
+
     # Added damping
     axs[1,0].plot(f_array_Aqwa, add_damp[:, 0, 0], linewidth=2.5, linestyle='-', label='x')  # linewidth=1.5)
     axs[1,0].plot(f_array_Aqwa, add_damp[:, 1, 1], linewidth=2.5, linestyle='-', label='y')  # linewidth=2.0)
@@ -270,7 +276,7 @@ def plot_added_mass_and_damping_func():
         return np.allclose(a, a.T, rtol=rtol, atol=atol)
     assert(all([check_symmetric(add_mass[i]) for i in range(len(add_mass))]))  # check if all matrices are symmetric
     assert (all([check_symmetric(add_damp[i]) for i in range(len(add_damp))]))  # check if all matrices are symmetric
-    n_off_diags_to_plot = 2  # e.g. the 3 largest off-diagonal entries of the added mass will be plotted
+    n_off_diags_to_plot = 3  # e.g. the 3 largest off-diagonal entries of the added mass will be plotted
     off_diag_add_mass_max = {}
     off_diag_add_damp_max = {}
     for i in range(6):
