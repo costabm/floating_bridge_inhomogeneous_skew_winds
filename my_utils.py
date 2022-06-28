@@ -6,3 +6,4 @@ def normalize(arr, old_bounds, new_bounds):
 
 def normalize_mode_shape(arr):
     return arr / np.max(np.abs(arr))
+
