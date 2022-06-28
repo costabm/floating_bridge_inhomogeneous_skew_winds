@@ -19,11 +19,12 @@ from WRF_500_interpolated.create_minigrid_data_from_raw_WRF_500_data import n_br
 # from create_WRF_data_at_bridge_nodes_from_minigrid_data import Nw_ws_wd_func  # todo: go get this function in the trash folder "old_wrong_files"
 from nonhomogeneity import Nw_static_wind_all, NwOneCase, NwAllCases  # Nw_U_bar_func, Nw_beta_and_theta_bar_func, interpolate_from_WRF_nodes_to_g_nodes, n_WRF_nodes, WRF_node_coor, U_bar_equivalent_to_Nw_U_bar
 from buffeting import buffeting_FD_func, rad, deg, list_of_cases_FD_func, parametric_buffeting_FD_func, U_bar_func, buffeting_TD_func, list_of_cases_TD_func, parametric_buffeting_TD_func, beta_0_func
+from my_utils import normalize, normalize_mode_shape
 import copy
 from static_loads import static_dead_loads_func, R_loc_func
 
 start_time = time.time()
-run_modal_analysis = False
+run_modal_analysis = True
 run_DL = False  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
 run_new_Nw_sw = False
@@ -62,9 +63,64 @@ if run_modal_analysis:
     _, _, omegas, shapes = simplified_modal_analysis_func(mass_matrix, stiff_matrix - geom_stiff_matrix)
     periods = 2*np.pi/omegas
 
-    # Plotting:
-    plot_mode_shape = True
-    def plot_mode_shape_func(n_modes_plot):
+    # New modal plots
+    def plot_mode_shapes(shapes, omegas, g_node_coor, p_node_coor, n_modes_plot=100):
+        """
+        global_shapes_Gs: global matrix. shape(n_all_modes, n_all_DOF), in Gs coordinates. Usually square matrix
+        """
+        periods = 2 * np.pi / omegas
+        n_g_nodes = len(g_node_coor)
+        n_p_nodes = len(p_node_coor)
+
+        flat_shapes_Gs = shapes[:n_modes_plot].copy()
+        assert len(flat_shapes_Gs.shape) == 2
+        assert flat_shapes_Gs.shape[1] == (n_g_nodes + n_p_nodes) * 6
+        assert (flat_shapes_Gs.shape[1]/6).is_integer()
+        shapes_Gs = np.reshape(flat_shapes_Gs, (flat_shapes_Gs.shape[0], int(flat_shapes_Gs.shape[1]/6), 6))
+        shapes_Ls = np.array([mat_Ls_node_Gs_node_all_func(shapes_Gs[f], g_node_coor, p_node_coor, alpha) for f in range(shapes_Gs.shape[0])])  # this matrix requires the shapes matrix to be in format 'ni', with n: number of nodes and i: 6 DOF.
+        g_shapes_Ls = shapes_Ls[:, :n_g_nodes]
+        g_shapes_Ls = np.array([normalize_mode_shape(x) for x in g_shapes_Ls])
+
+        # Plotting
+        fig, axs = plt.subplots(10, 5, sharex=True,sharey=True, dpi=200, figsize=(8,10.4))
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        for i, ax in enumerate(axs.ravel()):
+            ax.plot(np.linspace(0, arc_length, n_g_nodes), g_shapes_Ls[i, :, 1], c='tab:green', label='Horizontal (y-axis)')
+            ax.plot(np.linspace(0, arc_length, n_g_nodes), g_shapes_Ls[i, :, 2], c='tab:blue', label='Vertical (z-axis)')
+            ax.plot(np.linspace(0, arc_length, n_g_nodes), g_shapes_Ls[i, :, 3], c='tab:orange', label='Torsional (rx-axis)')
+            ax.text(0.049, 0.65, '$T_{'+f'{i+1}'+'}='+f'{np.round(periods[i],1)}s$', bbox={'fc': 'white', 'alpha': 0.6})
+            ax.set_xticks([0, 2500, 5000])
+        fig.supxlabel('x-axis [m]')
+        plt.tight_layout(pad=0.5) # w_pad=0.04, h_pad=0.06)
+        plt.savefig(r'_mode_shapes/first_50_modes.png')
+        plt.show()
+
+        h, l = ax.get_legend_handles_labels()
+        plt.figure(dpi=500, figsize=(6,1))
+        plt.axis('off')
+        plt.legend(h,l, ncol=3)
+        plt.tight_layout()
+        plt.savefig(r'_mode_shapes/new_mode_legend.png')
+        plt.show()
+
+        fig, axs = plt.subplots(10, 5, sharex=True,sharey=True, dpi=200, figsize=(8,10.4))
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        for i, ax in enumerate(axs.ravel()):
+            j = i + int(n_modes_plot/2)
+            ax.plot(np.linspace(0, arc_length, n_g_nodes), g_shapes_Ls[j, :, 1], c='tab:green', label='Horizontal (y-axis)')
+            ax.plot(np.linspace(0, arc_length, n_g_nodes), g_shapes_Ls[j, :, 2], c='tab:blue', label='Vertical (z-axis)')
+            ax.plot(np.linspace(0, arc_length, n_g_nodes), g_shapes_Ls[j, :, 3], c='tab:orange', label='Torsional (rx-axis)')
+            ax.text(0.049, 0.65, '$T_{'+f'{j+1}'+'}='+f'{np.round(periods[j],1)}s$', bbox={'fc': 'white', 'alpha': 0.6})
+            ax.set_xticks([0, 2500, 5000])
+        fig.supxlabel('x-axis [m]')
+        plt.tight_layout(pad=0.5) # w_pad=0.04, h_pad=0.06)
+        plt.savefig(r'_mode_shapes/other_50_modes.png')
+        plt.show()
+        return None
+    plot_mode_shapes(shapes, omegas, g_node_coor, p_node_coor)
+
+    # OLD plots:
+    def plot_mode_shape_old(n_modes_plot):
         deformation_ratio = 200
         for m in range(n_modes_plot):
             # Girder:
@@ -130,7 +186,7 @@ if run_modal_analysis:
             plt.close()
         print("--- %s seconds ---" % (time.time() - start_time))
         return None
-    plot_mode_shape_func(n_modes_plot = 10) if plot_mode_shape else None
+    # plot_mode_shape_old(n_modes_plot = 10)
 
 ########################################################################################################################
 # Dead loads analysis (DL)
@@ -201,8 +257,7 @@ if run_modal_analysis_after_static_loads:
     _, _, omegas, shapes = simplified_modal_analysis_func(mass_matrix, stiff_matrix - geom_stiff_matrix)
     periods = 2*np.pi/omegas
     # Plotting:
-    plot_mode_shape = True
-    def plot_mode_shape_func(n_modes_plot):
+    def plot_mode_shape_old(n_modes_plot):
         deformation_ratio = 200
         for m in range(n_modes_plot):
             # Girder:
@@ -251,7 +306,7 @@ if run_modal_analysis_after_static_loads:
             plt.close()
         print("--- %s seconds ---" % (time.time() - start_time))
         return None
-    plot_mode_shape_func(n_modes_plot = 10) if plot_mode_shape else None
+    plot_mode_shape_old(n_modes_plot = 10)
 
 ########################################################################################################################
 # Separate nonhomogeneous static wind (Nw_sw) analysis. This will store the results of the Nw_sw analysis into a folder, for efficiency! This folder is later accessed by buffeting.py
@@ -319,7 +374,7 @@ except FileNotFoundError:
 #                                                AERODYNAMIC ANALYSES
 ########################################################################################################################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-cospec_type_cases = [2,6]  # Best choices: 2, or 5.... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Katsuchi et al, 1999). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013). 6: same as 2 but now with cosine term that allows negative coh
+cospec_type_cases = [2]  # Best choices: 2, or 5.... 1: L.D.Zhu (however, the Cij params should be fitted again to measurements using this Zhu's formula and not Davenports). 2: Davenport, adapted for a 3D wind field (9 coherence coefficients). 3: Further including 1-pt spectrum Suw as in (Kaimal et al, 1972) and 2-pt spectrum Suw,ij as in (Katsuchi et al, 1999). 4: Fully according to (Hémon and Santi, 2007)(WRONG. No Coh_uw information required which is strange!). 5: Fully according to "A turbulence model based on principal components" (Solari and Tubino, 2002), supported by (Oiseth et al, 2013). 6: same as 2 but now with cosine term that allows negative coh
 Ii_simplified = True  # Turbulence intensities. Simplified -> same turbulence intensities everywhere for all directions.
 include_modal_coupling = True  # True: CQC. False: SRSS. Off-diag of modal M, C and K in the Freq. Dom. (modal coupling).
 include_SE_in_modal = False  # includes effects from Kse when calculating mode shapes (only relevant in Freq. Domain). True gives complex mode shapes!
@@ -366,7 +421,7 @@ n_nodes_cases = [len(g_node_coor)]
 # Nw_idxs = np.arange(n_Nw_sw_cases)  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_idxs = [None]  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_or_equiv_Hw_cases = [None]  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
-beta_DB_cases = np.arange(rad(0), rad(359), rad(10))  # wind (from) directions. Interval: [rad(0), rad(360)]
+beta_DB_cases = np.arange(rad(100), rad(359), rad(1000))  # wind (from) directions. Interval: [rad(0), rad(360)]
 
 if Nw_idxs != [None]:
     assert len(beta_DB_cases) == 1

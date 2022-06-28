@@ -60,8 +60,8 @@ def simplified_modal_analysis_func(M, K):
     shape_0 = np.array([i/np.max(np.abs(i)) for i in np.transpose(vectors)])  # mode shapes. Normalizing the vectors.
     
     # Sorting the omegas and shapes
-    shapes = np.array([s for w, s in sorted(zip(omega_0,shape_0))])
-    omegas = np.array([w for w, s in sorted(zip(omega_0,shape_0))])
+    shapes = np.array([s for w, s in sorted(zip(omega_0, shape_0))])
+    omegas = np.array([w for w, s in sorted(zip(omega_0, shape_0))])
     
     # Generalized Mass and Stiffness for each mode.
     M_tilde = np.array([np.matmul(np.matmul(np.transpose(shapes[i]), M), shapes[i]) for i in range(ndof)])
