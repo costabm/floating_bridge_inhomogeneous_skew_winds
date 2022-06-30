@@ -24,7 +24,7 @@ import copy
 from static_loads import static_dead_loads_func, R_loc_func
 
 start_time = time.time()
-run_modal_analysis = True
+run_modal_analysis = False
 run_DL = False  # include Dead Loads, for all analyses.
 run_sw_for_modal = False # include Static wind for the modal_analysis_after_static_loads. For other analyses use include_SW (inside buffeting function).
 run_new_Nw_sw = False
@@ -403,7 +403,7 @@ include_SE_in_modal = False  # includes effects from Kse when calculating mode s
 
 # MULTIPLE CASES
 dtype_in_response_spectra_cases = ['complex128']  # complex128, float64, float32. It doesn't make a difference in accuracy, nor in computational time (only when memory is an issue!).
-include_sw_cases = [True]  # include static wind effects or not (initial angle of attack and geometric stiffness)
+include_sw_cases = [False]  # include static wind effects or not (initial angle of attack and geometric stiffness)
 include_KG_cases = [True]  # include the effects of geometric stiffness (both in girder and columns)
 n_aero_coef_cases = [6]  # Include 3 coef (Drag, Lift, Moment), 4 (..., Axial) or 6 (..., Moment xx, Moment zz). Only working for the '3D' skew wind approach!!
 include_SE_cases = [True]  # include self-excited forces or not. If False, then flutter_derivatives_type must be either '3D_full' or '2D_full'
@@ -416,12 +416,12 @@ f_min_cases = [0.002]  # Hz. Use 0.002
 f_max_cases = [0.5]  # Hz. Use 0.5! important to not overstretch this parameter
 f_array_type_cases = ['equal_energy_bins']  # 'equal_width_bins', 'equal_energy_bins'
 # n_modes_cases = [(g_node_num+len(p_node_coor))*6]
-n_modes_cases = [100]
+n_modes_cases = [1000]
 n_nodes_cases = [len(g_node_coor)]
 # Nw_idxs = np.arange(n_Nw_sw_cases)  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_idxs = [None]  # Use: [None] or np.arange(positive integer) (e.g. np.arange(n_Nw_sw_cases)). [None] -> Homogeneous wind only (as in Paper 2). Do not use np.arange(0)
 Nw_or_equiv_Hw_cases = [None]  # Use [Nw] to analyse Nw only. Use ['Nw', 'Hw'] to analyse both Nw and the equivalent Hw!
-beta_DB_cases = np.arange(rad(100), rad(359), rad(1000))  # wind (from) directions. Interval: [rad(0), rad(360)]
+beta_DB_cases = np.array([rad(280), rad(340)])  # np.arange(rad(100), rad(359), rad(1000))  # wind (from) directions. Interval: [rad(0), rad(360)]
 
 if Nw_idxs != [None]:
     assert len(beta_DB_cases) == 1
@@ -440,7 +440,7 @@ parametric_buffeting_FD_func(list_of_cases, g_node_coor, p_node_coor, Ii_simplif
 # pr.disable()
 # pr.print_stats(sort='cumtime')
 
-raise Exception  # remove this (used for debugging and safety)
+raise Exception  # remove this (used to stop the code from reaching the time-domain calculations)
 
 ########################################################################################################################
 # Time domain buffeting analysis:
