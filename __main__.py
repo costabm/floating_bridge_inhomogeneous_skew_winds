@@ -43,10 +43,8 @@ g_elem_num = g_node_num - 1
 p_node_num = len(p_node_coor)
 all_node_num = g_node_num + p_node_num
 all_elem_num = g_elem_num + p_node_num
-
 R_loc = np.zeros((all_elem_num, 12))  # No initial element internal forces
 D_loc = np.zeros((all_node_num, 6))  # No initial nodal displacements
-
 girder_N = copy.deepcopy(R_loc[:g_elem_num, 0])  # No girder axial forces
 c_N = copy.deepcopy(R_loc[g_elem_num:, 0])  # No columns axial forces
 alpha = copy.deepcopy(D_loc[:g_node_num, 3])  # No girder nodes torsional rotations
