@@ -21,7 +21,7 @@ def modal_analysis_func(M, K):
 
     # Eigen values and vectors (unsorted):
     var1 = np.dot(np.linalg.inv(M), K)  # K/M. Matrix for which the eigenvalues and right eigenvectors will be computed
-    values, vectors = np.linalg.eig(var1)  # obtaining eigen values and eigen vectors
+    values, vectors = np.linalg.eig(var1)  # obtaining eigen values and eigen vectors. todo: scipy.linalg.schur should perhaps be used instead! (read: https://numpy.org/doc/stable/reference/generated/numpy.linalg.eig.html)
     omega_0 = np.sqrt(values)  # eigen frequencies in rad/s
     shape_0 = np.array([i/np.max(np.abs(i)) for i in np.transpose(vectors)])  # mode shapes. Normalizing the vectors.
 
