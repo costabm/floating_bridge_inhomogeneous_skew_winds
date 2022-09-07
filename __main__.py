@@ -30,7 +30,6 @@ run_sw_for_modal = False # include Static wind for the modal_analysis_after_stat
 run_new_Nw_sw = False
 
 run_modal_analysis_after_static_loads = False
-
 generate_new_C_Ci_grid = True  # todo: attention!
 
 ########################################################################################################################
